@@ -26,7 +26,7 @@ body {
         radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.03) 0%, transparent 40%),
         radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
     color: var(--text-main);
-    overflow: hidden;
+    overflow-x: hidden;
     height: 100vh;
 }
 
@@ -116,6 +116,29 @@ header {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2.5rem;
+    gap: 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.menu-toggle {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    border-radius: 8px;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: all 0.2s;
+}
+
+.menu-toggle:hover {
+    background: #f1f5f9;
 }
 
 header h2 {
@@ -385,4 +408,108 @@ tr:hover td {
 
 #author-ranking li strong {
     color: var(--primary-color);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    #app {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: -270px;
+        top: 0;
+        bottom: 0;
+        z-index: 1001;
+        transition: left 0.3s ease;
+        height: 100vh;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+    }
+
+    .menu-toggle {
+        display: flex;
+    }
+
+    .content {
+        padding: 1.5rem;
+    }
+
+    header {
+        margin-bottom: 1.5rem;
+    }
+
+    header h2 {
+        font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .chart-wrapper {
+        height: 300px;
+    }
+
+    .list-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filters {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .filters select,
+    .filters input {
+        flex: 1;
+        min-width: calc(50% - 0.5rem);
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    table {
+        min-width: 600px;
+    }
+
+    .modal-content {
+        width: calc(100% - 2rem);
+        padding: 1.5rem;
+    }
 }

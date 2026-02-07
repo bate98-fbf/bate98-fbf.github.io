@@ -238,6 +238,24 @@ function updateDate() {
 
 // Navigation
 function setupEventListeners() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.add('active');
+            overlay.classList.add('active');
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        });
+    }
+
     document.querySelectorAll('.sidebar nav li').forEach(li => {
         li.addEventListener('click', () => {
             document.querySelectorAll('.sidebar nav li').forEach(el => el.classList.remove('active'));
@@ -245,6 +263,12 @@ function setupEventListeners() {
             state.currentView = li.dataset.view;
             resetFilters(); // 필터 초기화
             renderCurrentView();
+
+            // Mobile: Close sidebar after selection
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
         });
     });
 
