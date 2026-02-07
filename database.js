@@ -1,5 +1,5 @@
 // Antigravity Reading App - Database
-let state = {
+window.state = {
     waitList: [
         { id: 101, title: '눈에 갇힌 외딴 산장에서', author: '히가시노 게이고', publishDate: '1992-01-01', classCode: '800', category: '관심작가' },
         { id: 102, title: '아름다운 흉기', author: '히가시노 게이고', publishDate: '1992-01-01', classCode: '800', category: '관심작가' },
