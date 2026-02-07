@@ -824,6 +824,7 @@ function generateStateCode() {
     // 현재 state에서 UI 상태 등 불필요한 값 제외하고 순수 데이터만 추출
     const cleanState = { ...state };
     delete cleanState.currentView; // 브라우저 상태는 초기값으로 유지하는 것이 좋음
+    delete cleanState.githubConfig; // 보안상 토큰 등 설정 정보는 제외 (GitHub Secret Scanning 방지)
 
     const jsonStr = JSON.stringify(cleanState, null, 4);
     return `let state = ${jsonStr};`;
