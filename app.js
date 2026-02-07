@@ -730,35 +730,55 @@ function renderSettings() {
 }
 
 async function syncWithGitHub() {
-    const { user, repo, token } = state.githubConfig;
+    const ghUser = document.getElementById('gh-user');
+    const ghRepo = document.getElementById('gh-repo');
+    const ghToken = document.getElementById('gh-token');
     const statusEl = document.getElementById('sync-status');
 
+    // Read from fields directly in case they weren't saved yet
+    const user = ghUser ? ghUser.value.trim() : state.githubConfig.user;
+    const repo = ghRepo ? ghRepo.value.trim() : state.githubConfig.repo;
+    const token = ghToken ? ghToken.value.trim() : state.githubConfig.token;
+
     if (!user || !repo || !token) {
-        alert('GitHub 설정을 먼저 완료해 주세요.');
+        alert('GitHub 설정을 먼저 완료해 주세요 (사용자명, 저장소명, 토큰 입력 필수).');
         return;
     }
 
     if (!confirm('현재 데이터를 GitHub에 즉시 업데이트하시겠습니까?')) return;
 
     statusEl.textContent = 'GitHub 연결 중...';
+    statusEl.style.color = 'var(--text-muted)';
     const filePath = 'app.js';
     const url = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
 
     try {
         // 1. Get current file data (to get SHA)
+        console.log('Fetching SHA from:', url);
         const getRes = await fetch(url, {
             headers: { 'Authorization': `token ${token}` }
         });
 
-        if (!getRes.ok) throw new Error('파일 정보를 가져오지 못했습니다. 설정(사용자명, 저장소명, 토큰)을 확인하세요.');
+        if (!getRes.ok) {
+            let errorMsg = '파일 정보를 가져오지 못했습니다.';
+            if (getRes.status === 401) errorMsg = '토큰이 유효하지 않습니다 (401 Unauthorized).';
+            else if (getRes.status === 403) errorMsg = 'API 호출 한도 초과 또는 권한 부족 (403 Forbidden). 토큰에 repo 권한이 있는지 확인하세요.';
+            else if (getRes.status === 404) errorMsg = `파일을 찾을 수 없습니다 (404 Not Found). 저장소 이름(${repo})과 경로(app.js)가 정확한지 확인하세요.`;
+            throw new Error(`${errorMsg} (Status: ${getRes.status})`);
+        }
+
         const fileData = await getRes.json();
         const sha = fileData.sha;
 
         // 2. Generate new content
         statusEl.textContent = '업데이트 준비 중...';
         const newCode = generateStateCode();
-        // UTF-8 to Base64 (Properly handling multi-byte characters)
-        const encodedContent = btoa(unescape(encodeURIComponent(newCode)));
+
+        // UTF-8 to Base64 (Reliable version)
+        const utf8Encoder = new TextEncoder();
+        const bytes = utf8Encoder.encode(newCode);
+        const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+        const encodedContent = btoa(binString);
 
         // 3. Update file via API
         statusEl.textContent = 'GitHub로 전송 중...';
@@ -787,7 +807,7 @@ async function syncWithGitHub() {
         console.error('동기화 에러:', err);
         statusEl.textContent = '❌ 동기화 실패';
         statusEl.style.color = 'var(--accent)';
-        alert('동기화 실패: ' + err.message);
+        alert('동기화 실패:\n' + err.message);
     }
 }
 
