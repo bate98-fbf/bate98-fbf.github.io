@@ -683,6 +683,29 @@ function renderSettings() {
         };
         reader.readAsText(file);
     };
+
+    // GitHub 업데이트 코드 복사
+    const copyBtn = document.getElementById('copy-github-code-btn');
+    if (copyBtn) {
+        copyBtn.onclick = () => {
+            const stateCode = generateStateCode();
+            navigator.clipboard.writeText(stateCode).then(() => {
+                alert('GitHub app.js에 덮어쓸 코드가 복사되었습니다!\nGitHub에서 state 변수 부분을 이 코드로 교체하세요.');
+            }).catch(err => {
+                console.error('복사 실패:', err);
+                alert('코드 복사에 실패했습니다.');
+            });
+        };
+    }
+}
+
+function generateStateCode() {
+    // 현재 state에서 UI 상태 등 불필요한 값 제외하고 순수 데이터만 추출
+    const cleanState = { ...state };
+    delete cleanState.currentView; // 브라우저 상태는 초기값으로 유지하는 것이 좋음
+
+    const jsonStr = JSON.stringify(cleanState, null, 4);
+    return `let state = ${jsonStr};`;
 }
 
 

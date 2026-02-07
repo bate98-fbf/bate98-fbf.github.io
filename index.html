@@ -129,6 +129,19 @@
                         <input type="file" id="import-file" style="display:none;" accept=".json">
                     </div>
                 </div>
+
+                <div class="settings-card" style="margin-top: 2rem;">
+                    <h3>GitHub DB 동기화</h3>
+                    <p style="color:var(--text-muted); font-size:0.875rem; margin-bottom:1rem;">
+                        현재 브라우저의 데이터를 GitHub에 반영하려면 아래 버튼을 클릭하여 코드를 복사한 후, GitHub의 app.js 파일 상단 state 변수 부분을 교체하세요.
+                    </p>
+                    <div class="settings-group">
+                        <button id="copy-github-code-btn" class="primary-btn"
+                            style="background-color: #24292e; flex:1;">
+                            GitHub 업데이트 코드 복사
+                        </button>
+                    </div>
+                </div>
             </section>
         </main>
     </div>
