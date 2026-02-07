@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity - 독서 기록 프로그램</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>JMC LIBRARY</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li class="active" data-view="dashboard">대시보드</li>
+                    <li data-view="to-read">대기도서목록</li>
+                    <li data-view="must-read">읽어야할도서</li>
+                    <li data-view="reading">읽고있는도서</li>
+                    <li data-view="completed">완독도서목록</li>
+                    <li data-view="settings">설정</li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header>
+                <h2 id="view-title">대시보드</h2>
+                <div class="user-info">
+                    <span id="current-date"></span>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <section id="dashboard-view" class="view">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>그룹별 통계</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="groupChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="stat-card favorite-authors">
+                        <h3>작가별 랭킹 (관심작가)</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="authorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card" style="margin-top: 2rem;">
+                    <h3>연도별 완독</h3>
+                    <div class="chart-wrapper" style="height: 300px;">
+                        <canvas id="yearlyChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other views will be rendered here dynamically -->
+            <section id="list-view" class="view" style="display: none;">
+                <div class="list-actions">
+                    <button id="add-book-btn" class="primary-btn">도서 추가</button>
+                    <div class="filters" id="table-filters">
+                        <select id="filter-author">
+                            <option value="">모든 작가</option>
+                        </select>
+                        <select id="filter-year">
+                            <option value="">모든 연도</option>
+                        </select>
+                        <select id="filter-month">
+                            <option value="">모든 월</option>
+                        </select>
+                        <select id="filter-group">
+                            <option value="">모든 그룹</option>
+                            <option value="phil">철학/역사 (0,1,2,9)</option>
+                            <option value="sci">과학/기술 (3,4,5)</option>
+                            <option value="lit">문학 (800대)</option>
+                            <option value="keigo">히가시노 게이고</option>
+                        </select>
+                        <input type="text" id="filter-class" placeholder="분류번호 검색">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="data-table">
+                        <thead>
+                            <tr id="table-header"></tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="settings-view" class="view" style="display: none;">
+                <div class="settings-card">
+                    <h3>관심작가 설정</h3>
+                    <div class="settings-group">
+                        <input type="text" id="new-author" placeholder="작가 이름 입력">
+                        <button id="add-author-btn" class="primary-btn">추가</button>
+                    </div>
+                    <ul id="interest-authors-list"></ul>
+                </div>
+
+                <div class="settings-card" style="margin-top: 2rem;">
+                    <h3>데이터 백업 및 동기화</h3>
+                    <p style="color:var(--text-muted); font-size:0.875rem; margin-bottom:1rem;">
+                        OneDrive 등 공유 폴더에 파일을 저장하고 기기 간에 데이터를 옮길 수 있습니다.
+                    </p>
+                    <div class="settings-group">
+                        <button id="export-btn" class="primary-btn" style="background-color: var(--accent); flex:1;">데이터
+                            내보내기 (.json)</button>
+                        <button id="import-btn" class="primary-btn"
+                            style="background-color: var(--primary-color); flex:1;">데이터 가져오기</button>
+                        <input type="file" id="import-file" style="display:none;" accept=".json">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for adding/editing books -->
+    <div id="book-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title">도서 등록</h3>
+            <form id="book-form">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" id="book-title" required>
+                </div>
+                <div class="form-group">
+                    <label>작가</label>
+                    <input type="text" id="book-author" required>
+                </div>
+                <div class="form-group">
+                    <label>출판일</label>
+                    <input type="date" id="book-date">
+                </div>
+                <div class="form-group">
+                    <label>서지분류번호</label>
+                    <input type="text" id="book-class">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="close-modal">취소</button>
+                    <button type="submit" class="primary-btn">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for selecting books from waitlist -->
+    <div id="select-book-modal" class="modal">
+        <div class="modal-content" style="width: 80%; max-width: 800px;">
+            <h3>도서 불러오기</h3>
+            <p id="slot-info" style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;"></p>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table id="select-book-table">
+                    <thead>
+                        <tr>
+                            <th>제목</th>
+                            <th>작가</th>
+                            <th>출판일</th>
+                            <th>분류번호</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="select-book-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="close-select-modal">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
