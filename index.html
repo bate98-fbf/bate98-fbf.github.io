@@ -136,15 +136,15 @@
                         GitHub API를 사용하여 데이터를 직접 업데이트합니다. 토큰은 브라우저에만 저장됩니다.
                     </p>
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label>GitHub 사용자명 (Username)</label>
+                        <label for="gh-user">GitHub 사용자명 (Username)</label>
                         <input type="text" id="gh-user" placeholder="예: gildong">
                     </div>
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label>저장소 이름 (Repository)</label>
+                        <label for="gh-repo">저장소 이름 (Repository)</label>
                         <input type="text" id="gh-repo" placeholder="예: antigravity-reading-app">
                     </div>
                     <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label>개인 액세스 토큰 (Token)</label>
+                        <label for="gh-token">개인 액세스 토큰 (Token)</label>
                         <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
                     </div>
                     <div class="settings-group">
@@ -153,7 +153,12 @@
                     </div>
                     <div class="settings-group" style="margin-top: 1rem;">
                         <button id="sync-github-btn" class="primary-btn" style="background-color: #24292e; flex:1;">
-                            <i class="fab fa-github"></i> GitHub로 즉시 업데이트 (동기화)
+                            <i class="fab fa-github"></i> GitHub로 데이터 보내기 (Push)
+                        </button>
+                    </div>
+                    <div class="settings-group" style="margin-top: 0.5rem;">
+                        <button id="pull-github-btn" class="primary-btn" style="background-color: #0366d6; flex:1;">
+                            <i class="fas fa-download"></i> GitHub에서 데이터 가져오기 (Pull)
                         </button>
                     </div>
                     <p id="sync-status"
@@ -180,19 +185,19 @@
             <h3 id="modal-title">도서 등록</h3>
             <form id="book-form">
                 <div class="form-group">
-                    <label>제목</label>
+                    <label for="book-title">제목</label>
                     <input type="text" id="book-title" required>
                 </div>
                 <div class="form-group">
-                    <label>작가</label>
+                    <label for="book-author">작가</label>
                     <input type="text" id="book-author" required>
                 </div>
                 <div class="form-group">
-                    <label>출판일</label>
+                    <label for="book-date">출판일</label>
                     <input type="date" id="book-date">
                 </div>
                 <div class="form-group">
-                    <label>서지분류번호</label>
+                    <label for="book-class">서지분류번호</label>
                     <input type="text" id="book-class">
                 </div>
                 <div class="modal-actions">
@@ -228,6 +233,7 @@
         </div>
     </div>
 
+    <script src="database.js"></script>
     <script src="app.js"></script>
 </body>
 
