@@ -695,6 +695,10 @@ function renderSettings() {
     const ghToken = document.getElementById('gh-token');
 
     if (ghUser) {
+        // Ensure githubConfig exists
+        if (!state.githubConfig) {
+            state.githubConfig = { user: '', repo: '', token: '' };
+        }
         ghUser.value = state.githubConfig.user || '';
         ghRepo.value = state.githubConfig.repo || '';
         ghToken.value = state.githubConfig.token || '';
@@ -734,6 +738,11 @@ async function syncWithGitHub() {
     const ghRepo = document.getElementById('gh-repo');
     const ghToken = document.getElementById('gh-token');
     const statusEl = document.getElementById('sync-status');
+
+    // Ensure githubConfig exists
+    if (!state.githubConfig) {
+        state.githubConfig = { user: '', repo: '', token: '' };
+    }
 
     // Read from fields directly in case they weren't saved yet
     const user = ghUser ? ghUser.value.trim() : state.githubConfig.user;
@@ -1001,6 +1010,11 @@ function loadState() {
                 parsed.waitList = parsed.waitList.filter(b => b.id !== rBook.id);
             }
         });
+
+        // Ensure new top-level properties are merged (Defensive merging)
+        if (!parsed.githubConfig) {
+            parsed.githubConfig = state.githubConfig;
+        }
 
         state = parsed;
     }
