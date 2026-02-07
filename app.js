@@ -507,10 +507,16 @@ function renderSettings() {
         };
     }
 
-    // GitHub 자동 동기화 버튼
+    // GitHub 자동 동기화 버튼 (Push)
     const syncBtn = document.getElementById('sync-github-btn');
     if (syncBtn) {
         syncBtn.onclick = () => syncWithGitHub();
+    }
+
+    // GitHub 데이터 가져오기 버튼 (Pull)
+    const pullBtn = document.getElementById('pull-github-btn');
+    if (pullBtn) {
+        pullBtn.onclick = () => pullFromGitHub();
     }
 
     // GitHub 업데이트 코드 복사
@@ -519,7 +525,7 @@ function renderSettings() {
         copyBtn.onclick = () => {
             const stateCode = generateStateCode();
             navigator.clipboard.writeText(stateCode).then(() => {
-                alert('GitHub app.js에 덮어쓸 코드가 복사되었습니다!\nGitHub에서 state 변수 부분을 이 코드로 교체하세요.');
+                alert('업데이트 코드가 복사되었습니다! (database.js 용)');
             }).catch(err => {
                 console.error('복사 실패:', err);
                 alert('코드 복사에 실패했습니다.');
@@ -629,6 +635,66 @@ function generateStateCode() {
 
     const jsonStr = JSON.stringify(cleanState, null, 4);
     return `// Antigravity Reading App - Database\nwindow.state = ${jsonStr};`;
+}
+
+async function pullFromGitHub() {
+    const ghUser = document.getElementById('gh-user');
+    const ghRepo = document.getElementById('gh-repo');
+    const ghToken = document.getElementById('gh-token');
+    const statusEl = document.getElementById('sync-status');
+
+    const user = ghUser ? ghUser.value.trim() : state.githubConfig.user;
+    const repo = ghRepo ? ghRepo.value.trim() : state.githubConfig.repo;
+    const token = ghToken ? ghToken.value.trim() : state.githubConfig.token;
+
+    if (!user || !repo || !token) {
+        alert('GitHub 설정을 먼저 완료해 주세요.');
+        return;
+    }
+
+    if (!confirm('GitHub에서 최신 데이터를 가져오시겠습니까? 현재 모바일의 모든 로컬 데이터가 덮어씌워집니다.')) return;
+
+    statusEl.textContent = 'GitHub에서 데이터 가져오는 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    const filePath = 'database.js';
+    const url = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+
+    try {
+        const res = await fetch(url, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+
+        if (!res.ok) {
+            throw new Error(`데이터를 가져오지 못했습니다. (Status: ${res.status})`);
+        }
+
+        const data = await res.json();
+        const content = decodeURIComponent(escape(atob(data.content))); // Base64 decode (UTF-8)
+
+        // Extract state from JS content
+        const stateMatch = content.match(/window\.state\s*=\s*({[\s\S]*});/);
+        if (!stateMatch) {
+            throw new Error('데이터 형식이 올바르지 않습니다.');
+        }
+
+        const cloudState = JSON.parse(stateMatch[1]);
+
+        // Merge settings (preserve token/config)
+        cloudState.githubConfig = { ...state.githubConfig };
+
+        state = cloudState;
+        saveState();
+
+        statusEl.textContent = '✅ 데이터 불러오기 완료!';
+        statusEl.style.color = 'var(--primary-color)';
+        alert('성공! GitHub의 최신 데이터가 반영되었습니다. 앱을 다시 시작합니다.');
+        location.reload();
+    } catch (err) {
+        console.error('Pull Error:', err);
+        statusEl.textContent = '❌ 가져오기 실패';
+        statusEl.style.color = 'var(--accent)';
+        alert('데이터 가져오기 실패:\n' + err.message);
+    }
 }
 
 
