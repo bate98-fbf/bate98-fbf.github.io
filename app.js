@@ -208,6 +208,11 @@ let state = {
     settings: {
         interestAuthors: ['히가시노 게이고', '단요', '성해나', '한강', '장용민', '허주은', '구병모', '정해연']
     },
+    githubConfig: {
+        user: '',
+        repo: '',
+        token: ''
+    },
     currentView: 'dashboard'
 };
 
@@ -684,6 +689,31 @@ function renderSettings() {
         reader.readAsText(file);
     };
 
+    // GitHub 설정 저장
+    const ghUser = document.getElementById('gh-user');
+    const ghRepo = document.getElementById('gh-repo');
+    const ghToken = document.getElementById('gh-token');
+
+    if (ghUser) {
+        ghUser.value = state.githubConfig.user || '';
+        ghRepo.value = state.githubConfig.repo || '';
+        ghToken.value = state.githubConfig.token || '';
+
+        document.getElementById('save-gh-config-btn').onclick = () => {
+            state.githubConfig.user = ghUser.value.trim();
+            state.githubConfig.repo = ghRepo.value.trim();
+            state.githubConfig.token = ghToken.value.trim();
+            saveState();
+            alert('GitHub 설정이 이 브라우저에 저장되었습니다.');
+        };
+    }
+
+    // GitHub 자동 동기화 버튼
+    const syncBtn = document.getElementById('sync-github-btn');
+    if (syncBtn) {
+        syncBtn.onclick = () => syncWithGitHub();
+    }
+
     // GitHub 업데이트 코드 복사
     const copyBtn = document.getElementById('copy-github-code-btn');
     if (copyBtn) {
@@ -696,6 +726,68 @@ function renderSettings() {
                 alert('코드 복사에 실패했습니다.');
             });
         };
+    }
+}
+
+async function syncWithGitHub() {
+    const { user, repo, token } = state.githubConfig;
+    const statusEl = document.getElementById('sync-status');
+
+    if (!user || !repo || !token) {
+        alert('GitHub 설정을 먼저 완료해 주세요.');
+        return;
+    }
+
+    if (!confirm('현재 데이터를 GitHub에 즉시 업데이트하시겠습니까?')) return;
+
+    statusEl.textContent = 'GitHub 연결 중...';
+    const filePath = 'app.js';
+    const url = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+
+    try {
+        // 1. Get current file data (to get SHA)
+        const getRes = await fetch(url, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+
+        if (!getRes.ok) throw new Error('파일 정보를 가져오지 못했습니다. 설정(사용자명, 저장소명, 토큰)을 확인하세요.');
+        const fileData = await getRes.json();
+        const sha = fileData.sha;
+
+        // 2. Generate new content
+        statusEl.textContent = '업데이트 준비 중...';
+        const newCode = generateStateCode();
+        // UTF-8 to Base64 (Properly handling multi-byte characters)
+        const encodedContent = btoa(unescape(encodeURIComponent(newCode)));
+
+        // 3. Update file via API
+        statusEl.textContent = 'GitHub로 전송 중...';
+        const putRes = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Update database from browser (${new Date().toLocaleString()})`,
+                content: encodedContent,
+                sha: sha
+            })
+        });
+
+        if (putRes.ok) {
+            statusEl.textContent = '✅ 동기화 완료!';
+            statusEl.style.color = 'var(--primary-color)';
+            alert('성공! GitHub의 데이터가 최신 상태로 업데이트되었습니다.');
+        } else {
+            const errData = await putRes.json();
+            throw new Error(errData.message || '업데이트 요청 실패');
+        }
+    } catch (err) {
+        console.error('동기화 에러:', err);
+        statusEl.textContent = '❌ 동기화 실패';
+        statusEl.style.color = 'var(--accent)';
+        alert('동기화 실패: ' + err.message);
     }
 }
 

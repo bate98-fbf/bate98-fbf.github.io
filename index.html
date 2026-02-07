@@ -131,14 +131,42 @@
                 </div>
 
                 <div class="settings-card" style="margin-top: 2rem;">
-                    <h3>GitHub DB 동기화</h3>
+                    <h3>GitHub 자동 동기화 설정</h3>
                     <p style="color:var(--text-muted); font-size:0.875rem; margin-bottom:1rem;">
-                        현재 브라우저의 데이터를 GitHub에 반영하려면 아래 버튼을 클릭하여 코드를 복사한 후, GitHub의 app.js 파일 상단 state 변수 부분을 교체하세요.
+                        GitHub API를 사용하여 데이터를 직접 업데이트합니다. 토큰은 브라우저에만 저장됩니다.
                     </p>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>GitHub 사용자명 (Username)</label>
+                        <input type="text" id="gh-user" placeholder="예: gildong">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>저장소 이름 (Repository)</label>
+                        <input type="text" id="gh-repo" placeholder="예: antigravity-reading-app">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>개인 액세스 토큰 (Token)</label>
+                        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+                    </div>
+                    <div class="settings-group">
+                        <button id="save-gh-config-btn" class="primary-btn"
+                            style="background-color: var(--primary-color); flex:1;">이 기기에 설정 저장</button>
+                    </div>
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <button id="sync-github-btn" class="primary-btn" style="background-color: #24292e; flex:1;">
+                            <i class="fab fa-github"></i> GitHub로 즉시 업데이트 (동기화)
+                        </button>
+                    </div>
+                    <p id="sync-status"
+                        style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-muted); text-align: center;">
+                    </p>
+                </div>
+
+                <div class="settings-card" style="margin-top: 2rem;">
+                    <h3>수동 동기화 (백업)</h3>
                     <div class="settings-group">
                         <button id="copy-github-code-btn" class="primary-btn"
-                            style="background-color: #24292e; flex:1;">
-                            GitHub 업데이트 코드 복사
+                            style="background-color: var(--text-muted); flex:1;">
+                            업데이트 코드 복사
                         </button>
                     </div>
                 </div>
