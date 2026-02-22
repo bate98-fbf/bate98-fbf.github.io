@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.entries(HOLIDAYS.lunar_and_sub).forEach(([k, v]) => plannerData.settings.holidays[k] = v);
     }
 
-    const ghConfig = plannerData.settings.github;
 
     if (!plannerData.archivedTasks) plannerData.archivedTasks = [];
     if (!plannerData.assignees) plannerData.assignees = [];
@@ -513,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchFromGitHub = async () => {
-        const { username, repo, token } = ghConfig;
+        const { username, repo, token } = plannerData.settings.github;
         if (!username || !repo || !token) return null;
         try {
             const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
@@ -527,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const pushToGitHub = async (data, sha = null) => {
-        const { username, repo, token } = ghConfig;
+        const { username, repo, token } = plannerData.settings.github;
         try {
             const body = {
                 message: `Update data ${new Date().toISOString()}`,
@@ -544,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const syncWithGitHub = async () => {
-        const { username, repo, token } = ghConfig;
+        const { username, repo, token } = plannerData.settings.github;
         if (!username || !repo || !token) {
             alert("Please configure GitHub settings first.");
             currentView = 'settings';
@@ -790,9 +789,27 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.importInput.addEventListener('change', (e) => {
             const f = e.target.files[0]; if (!f) return;
             const r = new FileReader(); r.onload = (ev) => {
-                plannerData = JSON.parse(ev.target.result); saveData(); renderActiveView(); alert('Backup restored!');
+                try {
+                    plannerData = JSON.parse(ev.target.result);
+                    // Ensure defensive initialization after import
+                    if (!plannerData.settings) plannerData.settings = {};
+                    if (!plannerData.settings.github) plannerData.settings.github = { username: '', repo: '', token: '' };
+                    if (!plannerData.settings.holidays) plannerData.settings.holidays = {};
+                    if (!plannerData.focusTasks) plannerData.focusTasks = [];
+                    if (!plannerData.archivedTasks) plannerData.archivedTasks = [];
+
+                    saveData();
+                    syncFocusTasksToCalendar();
+                    renderActiveView();
+                    alert('Backup restored!');
+                } catch (err) {
+                    alert('Failed to parse backup file.');
+                    console.error(err);
+                }
             }; r.readAsText(f);
         });
+
+        elements.importBtn.addEventListener('click', () => elements.importInput.click());
 
         // Day Editor Modal
         elements.closeDayModal.addEventListener('click', () => {
