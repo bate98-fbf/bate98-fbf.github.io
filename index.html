@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Daily Report</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-layout">
+        <header class="app-header">
+            <div class="header-main">
+                <div class="logo">Antigravity</div>
+                <ul class="nav-links">
+                    <li data-view="year">Year</li>
+                    <li data-view="month">Month</li>
+                    <li data-view="week">Week</li>
+                    <li data-view="day" class="active">Day</li>
+                    <li data-view="focus">Focus</li>
+                </ul>
+            </div>
+
+            <div class="header-center">
+                <h1 id="current-date-display">2026. 02. 22</h1>
+                <p id="view-indicator" class="tagline">Daily Report</p>
+            </div>
+
+            <div class="header-right">
+                <div class="nav-actions">
+                    <button id="export-btn" class="btn-text">Export</button>
+                    <input type="file" id="import-input" style="display:none">
+                    <button id="import-btn" class="btn-text">Import</button>
+                </div>
+                <div class="date-pager">
+                    <button id="prev-btn" class="btn-icon">←</button>
+                    <button id="today-btn" class="btn-secondary">Today</button>
+                    <button id="next-btn" class="btn-icon">→</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="app-container">
+
+            <main class="app-main">
+                <section id="year-view" class="planner-view hidden"></section>
+                <section id="month-view" class="planner-view hidden"></section>
+                <section id="week-view" class="planner-view hidden"></section>
+                <section id="day-view" class="planner-view">
+                    <div class="day-layout">
+                        <section class="planner-section timeline-card">
+                            <div class="card-header">
+                                <h2>Time Log</h2>
+                                <span class="badge">05:00 - 02:00</span>
+                            </div>
+                            <div id="timeline-container" class="timeline-container"></div>
+                        </section>
+                        <aside class="side-sections">
+                            <section class="planner-section review-card">
+                                <div class="card-header">
+                                    <h2>Daily Goals</h2>
+                                </div>
+                                <textarea id="daily-goals" data-field="goals"
+                                    placeholder="What are your objectives for today?"></textarea>
+                            </section>
+                            <section class="planner-section review-card">
+                                <div class="card-header">
+                                    <h2>Upcoming Plans</h2>
+                                </div>
+                                <div id="upcoming-plans-container" class="upcoming-plans-list">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </section>
+                            <section class="planner-section review-card">
+                                <div class="card-header">
+                                    <h2>Reflection</h2>
+                                </div>
+                                <div class="reflection-group">
+                                    <label>What went well?</label>
+                                    <textarea id="reflection-good" data-field="reflectionGood"></textarea>
+                                </div>
+                                <div class="reflection-group">
+                                    <label>What could be better?</label>
+                                    <textarea id="reflection-better" data-field="reflectionBetter"></textarea>
+                                </div>
+                            </section>
+                        </aside>
+                    </div>
+                </section>
+                <section id="focus-view" class="planner-view hidden">
+                    <div class="focus-layout">
+                        <header class="view-header">
+                            <div class="header-content">
+                                <h2>중점추진업무 (Core Focus Tasks)</h2>
+                                <p class="tagline">Manage your high-level strategic priorities</p>
+                            </div>
+                            <button id="add-task-btn" class="btn-primary">+ Add New Task</button>
+                        </header>
+                        <div id="focus-tasks-list" class="focus-tasks-grid">
+                            <!-- Tasks will be rendered here -->
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
