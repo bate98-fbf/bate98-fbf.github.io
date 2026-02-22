@@ -312,7 +312,7 @@ body {
 
 .timeline-row {
     display: grid;
-    grid-template-columns: 80px 1fr 1fr 100px;
+    grid-template-columns: 80px 1fr 1fr;
     gap: 1rem;
     align-items: center;
     padding: 0.5rem;
@@ -679,8 +679,8 @@ textarea {
     }
 
     .timeline-row {
-        grid-template-columns: 50px 1fr 1fr 65px;
-        /* Time, Plan, Do, Focus */
+        grid-template-columns: 50px 1fr 1fr;
+        /* Time, Plan, Do */
         gap: 0.3rem;
         padding: 0.5rem 0.2rem;
     }

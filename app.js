@@ -141,12 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="time-label">${labelDisplay}</div>
                     <input type="text" class="activity-input" data-time="${timeKey}" data-type="plan" placeholder="PLAN" value="${hourData.plan || ''}">
                     <input type="text" class="activity-input" data-time="${timeKey}" data-type="do" placeholder="DO" value="${hourData.do || ''}">
-                    <select class="focus-select" data-time="${timeKey}">
-                        <option value="0" ${dayData.focus[timeKey] == '0' ? 'selected' : ''}>-</option>
-                        <option value="1" ${dayData.focus[timeKey] == '1' ? 'selected' : ''}>Focus</option>
-                        <option value="2" ${dayData.focus[timeKey] == '2' ? 'selected' : ''}>Rest</option>
-                        <option value="3" ${dayData.focus[timeKey] == '3' ? 'selected' : ''}>Lost</option>
-                    </select>`;
+                `;
                 elements.timelineContainer.appendChild(row);
             });
         }
@@ -405,10 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const type = t.dataset.type;
                     if (!dayEntry.activities[time]) dayEntry.activities[time] = { plan: '', do: '' };
                     dayEntry.activities[time][type] = t.value;
-                }
-                if (t.classList.contains('focus-select')) {
-                    const time = t.dataset.time;
-                    dayEntry.focus[time] = t.value;
                 }
                 if (t.dataset.field) dayEntry[t.dataset.field] = t.value;
             } else if (currentView === 'month') {
