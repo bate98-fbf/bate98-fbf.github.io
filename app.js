@@ -17,7 +17,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dayView: document.getElementById('day-view'),
         upcomingPlansContainer: document.getElementById('upcoming-plans-container'),
         focusTasksList: document.getElementById('focus-tasks-list'),
-        addTaskBtn: document.getElementById('add-task-btn')
+        addTaskBtn: document.getElementById('add-task-btn'),
+        syncBtn: document.getElementById('github-sync-btn'),
+        settingsBtn: document.getElementById('github-settings-btn'),
+        ghModal: document.getElementById('github-modal'),
+        closeGhModal: document.getElementById('close-gh-modal'),
+        saveGhSettings: document.getElementById('save-gh-settings'),
+        ghUsername: document.getElementById('gh-username'),
+        ghRepo: document.getElementById('gh-repo'),
+        ghToken: document.getElementById('gh-token')
+    };
+
+    let ghConfig = {
+        username: localStorage.getItem('gh_username') || '',
+        repo: localStorage.getItem('gh_repo') || '',
+        token: localStorage.getItem('gh_token') || ''
     };
 
     let currentDate = new Date();
@@ -286,6 +300,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const setGHStatus = (status, text) => {
+        elements.syncBtn.className = `btn-text ${status}`;
+        elements.syncBtn.textContent = text;
+        if (status === 'success' || status === 'error') {
+            setTimeout(() => {
+                elements.syncBtn.className = 'btn-text';
+                elements.syncBtn.textContent = 'Sync';
+            }, 3000);
+        }
+    };
+
+    const fetchFromGitHub = async () => {
+        const { username, repo, token } = ghConfig;
+        if (!username || !repo || !token) return null;
+        try {
+            const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
+                headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (res.status === 404) return null;
+            const fileData = await res.json();
+            const content = decodeURIComponent(atob(fileData.content).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            return { data: JSON.parse(content), sha: fileData.sha };
+        } catch (e) { console.error(e); return null; }
+    };
+
+    const pushToGitHub = async (data, sha = null) => {
+        const { username, repo, token } = ghConfig;
+        try {
+            const body = {
+                message: `Update data ${new Date().toISOString()}`,
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+                sha: sha
+            };
+            const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            return res.ok;
+        } catch (e) { console.error(e); return false; }
+    };
+
+    const syncWithGitHub = async () => {
+        const { username, repo, token } = ghConfig;
+        if (!username || !repo || !token) {
+            elements.ghModal.classList.remove('hidden');
+            return;
+        }
+        setGHStatus('syncing', 'Syncing...');
+        const remote = await fetchFromGitHub();
+
+        let dataToPush = plannerData;
+        let remoteSha = null;
+
+        if (remote) {
+            remoteSha = remote.sha;
+            plannerData = { ...plannerData, ...remote.data };
+            saveData();
+            renderActiveView();
+            dataToPush = plannerData;
+        }
+
+        const success = await pushToGitHub(dataToPush, remoteSha);
+        if (success) setGHStatus('success', 'Synced!');
+        else setGHStatus('error', 'Sync Failed');
+    };
+
     const getDateKey = (date) => {
         const y = date.getFullYear();
         const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -381,12 +462,33 @@ document.addEventListener('DOMContentLoaded', () => {
             a.download = `planner_backup_${getDateKey(new Date())}.json`; a.click();
         });
 
-        elements.importBtn.addEventListener('click', () => elements.importInput.click());
         elements.importInput.addEventListener('change', (e) => {
             const f = e.target.files[0]; if (!f) return;
             const r = new FileReader(); r.onload = (ev) => {
                 plannerData = JSON.parse(ev.target.result); saveData(); renderActiveView(); alert('Backup restored!');
             }; r.readAsText(f);
+        });
+
+        // GitHub Sync
+        elements.syncBtn.addEventListener('click', syncWithGitHub);
+        elements.settingsBtn.addEventListener('click', () => {
+            elements.ghUsername.value = ghConfig.username;
+            elements.ghRepo.value = ghConfig.repo;
+            elements.ghToken.value = ghConfig.token;
+            elements.ghModal.classList.remove('hidden');
+        });
+
+        elements.closeGhModal.addEventListener('click', () => elements.ghModal.classList.add('hidden'));
+
+        elements.saveGhSettings.addEventListener('click', () => {
+            ghConfig.username = elements.ghUsername.value.trim();
+            ghConfig.repo = elements.ghRepo.value.trim();
+            ghConfig.token = elements.ghToken.value.trim();
+            localStorage.setItem('gh_username', ghConfig.username);
+            localStorage.setItem('gh_repo', ghConfig.repo);
+            localStorage.setItem('gh_token', ghConfig.token);
+            elements.ghModal.classList.add('hidden');
+            alert('GitHub settings saved!');
         });
     };
 

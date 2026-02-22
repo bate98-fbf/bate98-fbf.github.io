@@ -127,6 +127,20 @@ body {
     gap: 1.5rem;
 }
 
+#github-settings-btn {
+    background: var(--bg-color);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+#github-settings-btn:hover {
+    background: var(--accent-color);
+    color: #ffffff;
+}
+
 .nav-actions {
     display: flex;
     gap: 0.5rem;
