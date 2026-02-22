@@ -37,6 +37,8 @@
                     <button id="export-btn" class="btn-text">Export</button>
                     <input type="file" id="import-input" style="display:none">
                     <button id="import-btn" class="btn-text">Import</button>
+                    <button id="github-sync-btn" class="btn-text" title="Sync with GitHub">Sync</button>
+                    <button id="github-settings-btn" class="btn-icon">⚙</button>
                 </div>
                 <div class="date-pager">
                     <button id="prev-btn" class="btn-icon">←</button>
@@ -108,6 +110,28 @@
                     </div>
                 </section>
             </main>
+        </div>
+    </div>
+    <div id="github-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>GitHub Synchronization Settings</h3>
+            <p class="modal-desc">Enter your GitHub details to enable cross-device sync.</p>
+            <div class="input-group">
+                <label>GitHub Username</label>
+                <input type="text" id="gh-username" placeholder="e.g., bate98-fbf">
+            </div>
+            <div class="input-group">
+                <label>Repository Name</label>
+                <input type="text" id="gh-repo" placeholder="e.g., daily-report-app">
+            </div>
+            <div class="input-group">
+                <label>Personal Access Token (PAT)</label>
+                <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+            </div>
+            <div class="modal-actions">
+                <button id="save-gh-settings" class="btn-primary">Save Settings</button>
+                <button id="close-gh-modal" class="btn-text">Close</button>
+            </div>
         </div>
     </div>
     <script src="app.js"></script>

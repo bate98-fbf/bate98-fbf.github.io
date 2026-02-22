@@ -775,3 +775,89 @@ textarea {
         opacity: 0.7;
     }
 }
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.modal-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.input-group {
+    margin-bottom: 1.2rem;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: var(--text-secondary);
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+    border-color: var(--accent-color);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+#github-sync-btn.syncing {
+    opacity: 0.6;
+    pointer-events: none;
+    background: var(--accent-glow);
+    color: var(--accent-color);
+}
+
+#github-sync-btn.success {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #166534;
+}
+
+#github-sync-btn.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #991b1b;
+}
