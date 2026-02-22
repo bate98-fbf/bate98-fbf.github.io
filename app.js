@@ -530,9 +530,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const mergePlannerData = (local, remote) => {
-        const merged = { ...local };
+        // Create a deep copy of local to protect settings
+        const merged = JSON.parse(JSON.stringify(local));
+
+        // Preserve local GitHub settings entirely
+        const localGitHub = { ...((local.settings && local.settings.github) || {}) };
+
         for (const key in remote) {
-            if (remote[key] && typeof remote[key] === 'object' && !Array.isArray(remote[key])) {
+            if (key === 'settings') {
+                // Merge other settings but keep local github
+                merged.settings = { ...(local.settings || {}), ...remote.settings };
+                merged.settings.github = localGitHub;
+            } else if (remote[key] && typeof remote[key] === 'object' && !Array.isArray(remote[key])) {
                 merged[key] = { ...(local[key] || {}), ...remote[key] };
             } else {
                 merged[key] = remote[key];
@@ -544,9 +553,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const pushToGitHub = async (data, sha = null) => {
         const { username, repo, token } = plannerData.settings.github;
         try {
+            // DETACH sensitive settings before pushing
+            const sanitizedData = JSON.parse(JSON.stringify(data));
+            if (sanitizedData.settings && sanitizedData.settings.github) {
+                sanitizedData.settings.github = { username: '', repo: '', token: '' };
+            }
+
             const body = {
                 message: `Update data ${new Date().toISOString()}`,
-                content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(sanitizedData, null, 2)))),
                 sha: sha
             };
             const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
