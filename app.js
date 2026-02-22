@@ -14,6 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
         exportBtn: document.getElementById('export-btn'),
         importBtn: document.getElementById('import-btn'),
         importInput: document.getElementById('import-input'),
+        ghUsernameInput: document.getElementById('settings-gh-username'),
+        ghRepoInput: document.getElementById('settings-gh-repo'),
+        ghTokenInput: document.getElementById('settings-gh-token'),
+        saveGhSettingsBtn: document.getElementById('save-settings-gh'),
+        holidayManagerContainer: document.getElementById('holiday-manager-container'),
+        setExportFolderBtn: document.getElementById('set-export-folder-btn'),
+        exportFolderDisplay: document.getElementById('export-folder-display'),
         timelineContainer: document.getElementById('timeline-container'),
         yearView: document.getElementById('year-view'),
         monthView: document.getElementById('month-view'),
@@ -52,7 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
         saveMonthBtn: document.getElementById('save-month-btn'),
         closeMonthModal: document.getElementById('close-month-modal'),
         copyPlanBtn: document.getElementById('copy-plan-btn'),
-        pastePlanBtn: document.getElementById('paste-plan-btn')
+        pastePlanBtn: document.getElementById('paste-plan-btn'),
+        dayTodoList: document.getElementById('day-todo-list'),
+        dayTodoInput: document.getElementById('day-todo-input'),
+        addDayTodoBtn: document.getElementById('add-day-todo-btn')
     };
 
     let currentDate = new Date();
@@ -152,6 +162,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveData = () => localStorage.setItem('antigravity_planner_data', JSON.stringify(plannerData));
 
+    // IndexedDB Helper for File System Access API handles
+    const DB_NAME = 'PlannerFileSystemDB';
+    const STORE_NAME = 'handles';
+    const initDB = () => {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME);
+                }
+            };
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    };
+
+    const storeHandle = async (key, handle) => {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.put(handle, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    };
+
+    const getHandle = async (key) => {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.get(key);
+            request.onsuccess = (e) => resolve(e.target.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    };
+
+    const verifyPermission = async (handle, readWrite) => {
+        const options = {};
+        if (readWrite) options.mode = 'readwrite';
+        if ((await handle.queryPermission(options)) === 'granted') return true;
+        if ((await handle.requestPermission(options)) === 'granted') return true;
+        return false;
+    };
+
     const renderActiveView = () => {
         updateHeader();
         elements.views.forEach(v => v.classList.add('hidden'));
@@ -195,20 +252,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentView === 'month') displayStr = currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
         else if (currentView === 'year') displayStr = currentDate.getFullYear();
         elements.dateDisplay.textContent = displayStr;
-        if (currentView === 'focus') {
-            elements.dateDisplay.textContent = 'Core Focus Tasks';
-            elements.viewIndicator.textContent = 'Strategic Priorities';
-        } else {
-            elements.viewIndicator.textContent = `${currentView.charAt(0).toUpperCase() + currentView.slice(1)} View`;
-        }
+        const viewLabels = {
+            'year': 'Long-term Vision & Goals',
+            'month': 'Monthly Objectives & Key Events',
+            'week': 'Weekly Schedule & Priorities',
+            'day': 'Daily Focus & Detailed Report',
+            'focus': 'Strategic Task Management',
+            'settings': 'Configuration & Sync Settings'
+        };
+        elements.viewIndicator.textContent = viewLabels[currentView] || `${currentView.charAt(0).toUpperCase() + currentView.slice(1)} View`;
     };
 
     const renderDayView = () => {
         const dateKey = getDateKey(currentDate);
-        if (!plannerData.day[dateKey]) plannerData.day[dateKey] = { activities: {}, focus: {}, goals: '', reflectionGood: '', reflectionBetter: '' };
+        if (!plannerData.day[dateKey]) plannerData.day[dateKey] = { activities: {}, focus: {}, goals: '', reflectionGood: '', reflectionBetter: '', todos: [] };
         const dayData = plannerData.day[dateKey];
         if (!dayData.activities) dayData.activities = {};
         if (!dayData.focus) dayData.focus = {};
+        if (!dayData.todos) dayData.todos = [];
 
         elements.timelineContainer.innerHTML = `
             <div class="timeline-row timeline-header">
@@ -242,6 +303,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render Upcoming Plans (D, D+1, D+2)
         renderUpcomingPlans();
+        renderDayTodos();
+    };
+
+    const renderDayTodos = () => {
+        const dateKey = getDateKey(currentDate);
+        const dayData = plannerData.day[dateKey];
+        elements.dayTodoList.innerHTML = '';
+
+        dayData.todos.forEach((todo, idx) => {
+            const item = document.createElement('div');
+            item.className = `day-todo-item ${todo.done ? 'done' : ''}`;
+            item.innerHTML = `
+                <input type="checkbox" class="day-todo-checkbox" ${todo.done ? 'checked' : ''} data-idx="${idx}">
+                <span>${todo.text}</span>
+                <button class="btn-delete-todo-day" data-idx="${idx}" title="Delete item">×</button>
+            `;
+            elements.dayTodoList.appendChild(item);
+        });
     };
 
     const renderUpcomingPlans = () => {
@@ -369,11 +448,21 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.yearView.innerHTML = html + '</div>';
     };
 
-    const renderSettingsView = () => {
+    const renderSettingsView = async () => {
         // GitHub Config
         elements.ghUsernameInput.value = plannerData.settings.github.username;
         elements.ghRepoInput.value = plannerData.settings.github.repo;
         elements.ghTokenInput.value = plannerData.settings.github.token;
+
+        // Export Folder Display
+        const dirHandle = await getHandle('exportFolder');
+        if (dirHandle) {
+            elements.exportFolderDisplay.textContent = `Current Folder: ${dirHandle.name}`;
+            elements.exportFolderDisplay.style.color = 'var(--accent-color)';
+        } else {
+            elements.exportFolderDisplay.textContent = 'Not set (using default download)';
+            elements.exportFolderDisplay.style.color = 'var(--text-secondary)';
+        }
 
         // Holiday Manager
         let html = '';
@@ -981,6 +1070,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const fileName = `planner_backup_${getTimestamp(new Date())}.json`;
             const content = JSON.stringify(plannerData, null, 2);
 
+            // Attempt to use persisted directory handle first
+            const dirHandle = await getHandle('exportFolder');
+            if (dirHandle) {
+                try {
+                    if (await verifyPermission(dirHandle, true)) {
+                        const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(content);
+                        await writable.close();
+                        alert(`Exported to your selected folder as ${fileName}`);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Failed to save to persisted folder", e);
+                }
+            }
+
             if ('showSaveFilePicker' in window) {
                 try {
                     const handle = await window.showSaveFilePicker({
@@ -1173,6 +1279,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
             saveData();
             alert("GitHub settings saved.");
+        });
+
+        elements.setExportFolderBtn.addEventListener('click', async () => {
+            try {
+                const handle = await window.showDirectoryPicker();
+                await storeHandle('exportFolder', handle);
+                renderSettingsView();
+                alert(`Export folder set to: ${handle.name}`);
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                console.error("Folder picker failed", e);
+                alert("Failed to select folder.");
+            }
+        });
+
+        // Day To-Do list listeners
+        const addDayTodo = () => {
+            const text = elements.dayTodoInput.value.trim();
+            if (!text) return;
+            const dateKey = getDateKey(currentDate);
+            if (!plannerData.day[dateKey].todos) plannerData.day[dateKey].todos = [];
+            plannerData.day[dateKey].todos.push({ text, done: false });
+            elements.dayTodoInput.value = '';
+            saveData();
+            renderDayTodos();
+        };
+
+        elements.addDayTodoBtn.addEventListener('click', addDayTodo);
+        elements.dayTodoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addDayTodo();
+        });
+
+        elements.dayTodoList.addEventListener('click', (e) => {
+            const t = e.target;
+            const idx = t.dataset.idx;
+            if (idx === undefined) return;
+            const dateKey = getDateKey(currentDate);
+
+            if (t.classList.contains('day-todo-checkbox')) {
+                plannerData.day[dateKey].todos[idx].done = t.checked;
+                saveData();
+                renderDayTodos();
+            } else if (t.classList.contains('btn-delete-todo-day')) {
+                plannerData.day[dateKey].todos.splice(idx, 1);
+                saveData();
+                renderDayTodos();
+            }
         });
 
         // Manual Save Button

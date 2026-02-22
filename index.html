@@ -18,13 +18,13 @@
         <header class="app-header">
             <div class="logo-container">
                 <h1 id="logo">PLANNER</h1>
+                <p id="view-indicator" class="tagline">Daily Report</p>
             </div>
             <div class="header-main">
                 <div class="date-display-wrapper">
                     <div id="current-date-display" class="date-header-clickable" title="Click to jump to date"></div>
                     <input type="date" id="header-date-jump" class="hidden-date-input">
                 </div>
-                <p id="view-indicator" class="tagline">Daily Report</p>
             </div>
             <div class="header-right">
                 <ul class="nav-links">
@@ -78,6 +78,21 @@
                             <div id="timeline-container" class="timeline-container"></div>
                         </section>
                         <aside class="side-sections">
+                            <section class="planner-section review-card">
+                                <div class="card-header">
+                                    <h2>Today's Checklist</h2>
+                                </div>
+                                <div class="todo-list-container">
+                                    <div class="todo-list-input-group">
+                                        <input type="text" id="day-todo-input" placeholder="Add a quick to-do...">
+                                        <button id="add-day-todo-btn" class="btn-icon"
+                                            style="width:32px; height:32px;">+</button>
+                                    </div>
+                                    <div id="day-todo-list" class="todo-list-items">
+                                        <!-- Populated by JS -->
+                                    </div>
+                                </div>
+                            </section>
                             <section class="planner-section review-card">
                                 <div class="card-header">
                                     <h2>Daily Goals</h2>
@@ -160,15 +175,30 @@
                                 </div>
                                 <div class="settings-body">
                                     <div id="holiday-manager-container" class="holiday-manager-list">
-                                        <!-- Populated by JS -->
+                                        <!-- Populated via JS -->
                                     </div>
                                 </div>
                             </section>
-                        </div>
-                    </div>
+                            <section class="planner-section settings-card">
+                                <div class="card-header">
+                                    <h2>Export Settings</h2>
+                                </div>
+                                <div class="settings-body">
+                                    <div class="settings-group">
+                                        <label>Default Export Folder</label>
+                                        <p id="export-folder-display" class="settings-info">Not set (using default
+                                            download)</p>
+                                        <button id="set-export-folder-btn" class="btn-secondary"
+                                            style="width:100%; margin-top:0.5rem;">Select Export Folder</button>
+                                    </div>
+                                </div>
+                            </section>
                 </section>
-            </main>
         </div>
+    </div>
+    </section>
+    </main>
+    </div>
     </div>
     <div id="holiday-editor-modal" class="modal hidden">
         <div class="modal-content">
