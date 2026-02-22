@@ -534,41 +534,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const deepMerge = (target, source) => {
         const isObject = (item) => item && typeof item === 'object' && !Array.isArray(item);
+
+        // If source is not an object or target is not an object, source wins
+        if (!isObject(source)) return source;
+        if (!isObject(target)) {
+            // If target is missing but source exists, return a deep copy of source
+            return JSON.parse(JSON.stringify(source));
+        }
+
         const merged = { ...target };
 
-        if (isObject(target) && isObject(source)) {
-            Object.keys(source).forEach(key => {
-                if (isObject(source[key])) {
-                    if (!(key in target)) Object.assign(merged, { [key]: source[key] });
-                    else merged[key] = deepMerge(target[key], source[key]);
-                } else if (Array.isArray(source[key])) {
-                    // Smart Array Merge for Tasks (by ID)
-                    if (key === 'focusTasks' || key === 'archivedTasks' || key === 'assignees') {
-                        const targetArr = target[key] || [];
-                        const sourceArr = source[key] || [];
-                        if (key === 'assignees') {
-                            merged[key] = [...new Set([...targetArr, ...sourceArr])];
-                        } else {
-                            // Merge task objects by UUID
-                            const map = new Map();
-                            targetArr.forEach(item => map.set(item.id, item));
-                            sourceArr.forEach(item => {
+        Object.keys(source).forEach(key => {
+            const sVal = source[key];
+            const tVal = target[key];
+
+            if (isObject(sVal)) {
+                if (!(key in target)) {
+                    merged[key] = JSON.parse(JSON.stringify(sVal));
+                } else {
+                    merged[key] = deepMerge(tVal, sVal);
+                }
+            } else if (Array.isArray(sVal)) {
+                // Smart Merge for Arrays: Check if it's an array of objects with IDs
+                const isIdArray = sVal.length > 0 && sVal[0] && typeof sVal[0] === 'object' && sVal[0].id;
+                const isAssignees = key === 'assignees';
+
+                if (isIdArray || isAssignees) {
+                    const targetArr = Array.isArray(tVal) ? tVal : [];
+                    if (isAssignees) {
+                        merged[key] = [...new Set([...targetArr, ...sVal])];
+                    } else {
+                        const map = new Map();
+                        targetArr.forEach(item => { if (item.id) map.set(item.id, item); });
+                        sVal.forEach(item => {
+                            if (item.id) {
                                 if (map.has(item.id)) {
                                     map.set(item.id, deepMerge(map.get(item.id), item));
                                 } else {
-                                    map.set(item.id, item);
+                                    map.set(item.id, JSON.parse(JSON.stringify(item)));
                                 }
-                            });
-                            merged[key] = Array.from(map.values());
-                        }
-                    } else {
-                        merged[key] = source[key];
+                            }
+                        });
+                        merged[key] = Array.from(map.values());
                     }
                 } else {
-                    merged[key] = source[key];
+                    // Default array handling: overwrite
+                    merged[key] = JSON.parse(JSON.stringify(sVal));
                 }
-            });
-        }
+            } else {
+                // Primitives (Strings, Numbers, Booleans)
+                if (typeof sVal === 'string') {
+                    // Prioritize non-empty strings to prevent data loss during cross-device sync
+                    if (sVal.trim() !== '') {
+                        merged[key] = sVal;
+                    } else if (!tVal || (typeof tVal === 'string' && tVal.trim() === '')) {
+                        merged[key] = sVal;
+                    }
+                    // if sVal is empty and tVal has content, we KEEP tVal
+                } else if (sVal !== null && sVal !== undefined) {
+                    merged[key] = sVal;
+                }
+            }
+        });
         return merged;
     };
 
