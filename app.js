@@ -19,66 +19,113 @@ document.addEventListener('DOMContentLoaded', () => {
         focusTasksList: document.getElementById('focus-tasks-list'),
         addTaskBtn: document.getElementById('add-task-btn'),
         syncBtn: document.getElementById('github-sync-btn'),
-        settingsBtn: document.getElementById('github-settings-btn'),
-        ghModal: document.getElementById('github-modal'),
-        closeGhModal: document.getElementById('close-gh-modal'),
-        saveGhSettings: document.getElementById('save-gh-settings'),
-        ghUsername: document.getElementById('gh-username'),
-        ghRepo: document.getElementById('gh-repo'),
-        ghToken: document.getElementById('gh-token')
-    };
-
-    let ghConfig = {
-        username: localStorage.getItem('gh_username') || '',
-        repo: localStorage.getItem('gh_repo') || '',
-        token: localStorage.getItem('gh_token') || ''
+        settingsView: document.getElementById('settings-view'),
+        ghUsernameInput: document.getElementById('settings-gh-username'),
+        ghRepoInput: document.getElementById('settings-gh-repo'),
+        ghTokenInput: document.getElementById('settings-gh-token'),
+        saveGhSettingsBtn: document.getElementById('save-settings-gh'),
+        holidayManagerContainer: document.getElementById('holiday-manager-container'),
+        addHolidayBtn: document.getElementById('add-holiday-btn'),
+        headerDateDisplay: document.getElementById('current-date-display'),
+        headerDateJump: document.getElementById('header-date-jump'),
+        holidayEditorModal: document.getElementById('holiday-editor-modal'),
+        holidayModalName: document.getElementById('holiday-modal-name'),
+        holidayModalRecurring: document.getElementById('holiday-modal-recurring'),
+        holidayModalSpecificContainer: document.getElementById('holiday-modal-specific-container'),
+        holidayModalRecurringContainer: document.getElementById('holiday-modal-recurring-container'),
+        holidayModalDate: document.getElementById('holiday-modal-date'),
+        holidayModalRecurringDate: document.getElementById('holiday-modal-recurring-date'),
+        saveHolidayModalBtn: document.getElementById('save-holiday-modal'),
+        closeHolidayModalBtn: document.getElementById('close-holiday-modal'),
+        dayEditorModal: document.getElementById('day-editor-modal'),
+        modalDateTitle: document.getElementById('modal-date-title'),
+        modalDayInput: document.getElementById('modal-day-input'),
+        saveDayBtn: document.getElementById('save-day-btn'),
+        closeDayModal: document.getElementById('close-day-modal'),
+        monthEditorModal: document.getElementById('month-editor-modal'),
+        modalMonthTitle: document.getElementById('modal-month-title'),
+        modalMonthInput: document.getElementById('modal-month-input'),
+        saveMonthBtn: document.getElementById('save-month-btn'),
+        closeMonthModal: document.getElementById('close-month-modal')
     };
 
     let currentDate = new Date();
     let currentView = 'day';
+    let selectedDateKey = '';
+    let selectedMonthKey = '';
 
-    // 2026 Korean Holidays (Verified)
-    const HOLIDAYS_2026 = {
-        '2026-01-01': '신정',
-        '2026-02-16': '설날',
-        '2026-02-17': '설날',
-        '2026-02-18': '설날',
-        '2026-03-01': '삼일절',
-        '2026-03-02': '대체공휴일',
-        '2026-05-05': '어린이날',
-        '2026-05-24': '부처님오신날',
-        '2026-05-25': '대체공휴일',
-        '2026-06-03': '지방선거',
-        '2026-06-06': '현충일',
-        '2026-07-17': '제헌절',
-        '2026-08-15': '광복절',
-        '2026-08-17': '대체공휴일',
-        '2026-09-23': '추석',
-        '2026-09-24': '추석',
-        '2026-09-25': '추석',
-        '2026-10-03': '개천절',
-        '2026-10-05': '대체공휴일',
-        '2026-10-09': '한글날',
-        '2026-12-25': '성탄절'
+    // Korean Holidays (2026-2040) - Verified Solar, Lunar, and Substitute Holidays
+    const HOLIDAYS = {
+        // Solar Fixed Holidays
+        'solar': { '01-01': '신정', '03-01': '삼일절', '05-05': '어린이날', '06-06': '현충일', '07-17': '제헌절', '08-15': '광복절', '10-03': '개천절', '10-09': '한글날', '12-25': '성탄절' },
+        // Lunar & Substitute Holidays (Lookup)
+        'lunar_and_sub': {
+            '2026-02-16': '설날', '2026-02-17': '설날', '2026-02-18': '설날', '2026-03-02': '대체공휴일(삼일절)', '2026-05-25': '대체공휴일(석가탄신일)', '2026-08-17': '대체공휴일(광복절)', '2026-09-24': '추석', '2026-09-25': '추석', '2026-09-26': '추석', '2026-10-05': '대체공휴일(개천절)',
+            '2027-02-06': '설날', '2027-02-07': '설날', '2027-02-08': '설날', '2027-02-09': '대체공휴일(설날)', '2027-05-13': '석가탄신일', '2027-08-16': '대체공휴일(광복절)', '2027-09-14': '추석', '2027-09-15': '추석', '2027-09-16': '추석', '2027-10-04': '대체공휴일(개천절)', '2027-10-11': '대체공휴일(한글날)',
+            '2028-01-26': '설날', '2028-01-27': '설날', '2028-01-28': '설날', '2028-01-29': '대체공휴일(설날)', '2028-05-02': '석가탄신일', '2028-10-02': '추석', '2028-10-03': '추석', '2028-10-04': '추석',
+            '2029-02-12': '설날', '2029-02-13': '설날', '2029-02-14': '설날', '2029-05-07': '대체공휴일(어린이날)', '2029-05-20': '석가탄신일', '2029-05-21': '대체공휴일(석가탄신일)', '2029-09-21': '추석', '2029-09-22': '추석', '2029-09-23': '추석', '2029-09-24': '대체공휴일(추석)',
+            '2030-02-02': '설날', '2030-02-03': '설날', '2030-02-04': '설날', '2030-02-05': '대체공휴일(설날)', '2030-05-06': '대체공휴일(어린이날)', '2030-05-09': '석가탄신일', '2030-09-11': '추석', '2030-09-12': '추석', '2030-09-13': '추석',
+            '2031-01-22': '설날', '2031-01-23': '설날', '2031-01-24': '설날', '2031-01-25': '대체공휴일(설날)', '2031-03-03': '대체공휴일(삼일절)', '2031-05-28': '석가탄신일', '2031-09-30': '추석', '2031-10-01': '추석', '2031-10-02': '추석',
+            '2032-02-10': '설날', '2032-02-11': '설날', '2032-02-12': '설날', '2032-05-16': '석가탄신일', '2032-05-17': '대체공휴일(석가탄신일)', '2032-06-07': '대체공휴일(현충일)', '2032-07-19': '대체공휴일(제헌절)', '2032-08-16': '대체공휴일(광복절)', '2032-09-18': '추석', '2032-09-19': '추석', '2032-09-20': '추석', '2032-09-21': '대체공휴일(추석)', '2032-10-04': '대체공휴일(개천절)', '2032-10-11': '대체공휴일(한글날)', '2032-12-27': '대체공휴일(성탄절)',
+            '2033-01-03': '대체공휴일(신정)', '2033-01-30': '설날', '2033-01-31': '설날', '2033-02-01': '설날', '2033-05-25': '석가탄신일', '2033-07-18': '대체공휴일(제헌절)', '2033-09-07': '추석', '2033-09-08': '추석', '2033-09-09': '추석', '2033-10-10': '대체공휴일(한글날)', '2033-12-26': '대체공휴일(성탄절)',
+            '2034-01-02': '대체공휴일(신정)', '2034-02-18': '설날', '2034-02-19': '설날', '2034-02-20': '설날', '2034-05-25': '석가탄신일', '2034-09-26': '추석', '2034-09-27': '추석', '2034-09-28': '추석',
+            '2035-02-07': '설날', '2035-02-08': '설날', '2035-02-09': '설날', '2035-02-10': '대체공휴일(설날)', '2035-03-03': '대체공휴일(삼일절)', '2035-05-14': '석가탄신일', '2035-09-15': '추석', '2035-09-16': '추석', '2035-09-17': '추석', '2035-09-18': '대체공휴일(추석)',
+            '2036-01-27': '설날', '2036-01-28': '설날', '2036-01-29': '설날', '2036-03-03': '대체공휴일(삼일절)', '2036-05-03': '석가탄신일', '2036-05-06': '대체공휴일(석가탄신일/어린이날)', '2036-10-05': '추석', '2036-10-06': '추석', '2036-10-07': '추석',
+            '2037-02-14': '설날', '2037-02-15': '설날', '2037-02-16': '설날', '2037-03-02': '대체공휴일(삼일절)', '2037-05-23': '석가탄신일', '2037-05-25': '대체공휴일(석가탄신일)', '2037-06-08': '대체공휴일(현충일)', '2037-08-17': '대체공휴일(광복절)', '2037-09-23': '추석', '2037-09-24': '추석', '2037-09-25': '추석', '2037-10-05': '대체공휴일(개천절)',
+            '2038-02-03': '설날', '2038-02-04': '설날', '2038-02-05': '설날', '2038-05-13': '석가탄신일', '2038-06-07': '대체공휴일(현충일)', '2038-07-19': '대체공휴일(제헌절)', '2038-08-16': '대체공휴일(광복절)', '2038-09-12': '추석', '2038-09-13': '추석', '2038-09-14': '추석', '2038-10-04': '대체공휴일(개천절)', '2038-10-11': '대체공휴일(한글날)', '2038-12-27': '대체공휴일(성탄절)',
+            '2039-01-03': '대체공휴일(신정)', '2039-01-24': '설날', '2039-01-25': '설날', '2039-01-26': '설날', '2039-05-02': '석가탄신일', '2039-07-18': '대체공휴일(제헌절)', '2039-10-01': '추석', '2039-10-02': '추석', '2039-10-03': '추석', '2039-10-04': '대체공휴일(개천절)', '2039-10-10': '대체공휴일(한글날)', '2039-12-26': '대체공휴일(성탄절)',
+            '2040-02-11': '설날', '2040-02-12': '설날', '2040-02-13': '설날', '2040-02-14': '대체공휴일(설날)', '2040-05-06': '대체공휴일(어린이날)', '2040-05-18': '석가탄신일', '2040-05-20': '대체공휴일(석가탄신일)', '2040-09-20': '추석', '2040-09-21': '추석', '2040-09-22': '추석', '2040-09-23': '대체공휴일(추석)'
+        }
     };
 
-    let plannerData = JSON.parse(localStorage.getItem('antigravity_planner_data')) || { day: {}, week: {}, month: {}, year: {}, focusTasks: [] };
-    if (!plannerData.focusTasks) plannerData.focusTasks = [];
+    let plannerData = JSON.parse(localStorage.getItem('antigravity_planner_data')) || { day: {}, week: {}, month: {}, year: {}, focusTasks: [], archivedTasks: [], assignees: [], settings: null };
+
+    // Initialize/Migrate Settings
+    if (!plannerData.settings) {
+        plannerData.settings = {
+            github: {
+                username: localStorage.getItem('gh_username') || '',
+                repo: localStorage.getItem('gh_repo') || '',
+                token: localStorage.getItem('gh_token') || ''
+            },
+            holidays: {}
+        };
+        // Merge hardcoded holidays into settings
+        Object.entries(HOLIDAYS.solar).forEach(([k, v]) => plannerData.settings.holidays[k] = v);
+        Object.entries(HOLIDAYS.lunar_and_sub).forEach(([k, v]) => plannerData.settings.holidays[k] = v);
+    }
+
+    const ghConfig = plannerData.settings.github;
+
+    if (!plannerData.archivedTasks) plannerData.archivedTasks = [];
+    if (!plannerData.assignees) plannerData.assignees = [];
+
+    // Data Migration for Focus Tasks (convert legacy strings to objects)
+    if (plannerData.focusTasks) {
+        plannerData.focusTasks = plannerData.focusTasks.map(task => {
+            if (typeof task === 'string') return { title: task, subTasks: [] };
+            if (!task.subTasks) task.subTasks = [];
+            return task;
+        });
+    }
 
     const isHoliday = (date) => {
         const dateKey = getDateKey(date);
-        return HOLIDAYS_2026[dateKey] || date.getDay() === 0;
+        const mdKey = dateKey.substring(5); // MM-DD
+        return plannerData.settings.holidays[mdKey] || plannerData.settings.holidays[dateKey] || date.getDay() === 0;
     };
 
     const getHolidayName = (date) => {
         const dateKey = getDateKey(date);
-        return HOLIDAYS_2026[dateKey] || (date.getDay() === 0 ? '일요일' : '');
+        const mdKey = dateKey.substring(5); // MM-DD
+        return plannerData.settings.holidays[mdKey] || plannerData.settings.holidays[dateKey] || (date.getDay() === 0 ? '일요일' : '');
     };
 
     const isSaturday = (date) => date.getDay() === 6;
 
     const init = () => {
         setupEventListeners();
+        syncFocusTasksToCalendar();
         renderActiveView();
     };
 
@@ -91,15 +138,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle visibility of date pager
         const isFocusView = currentView === 'focus';
-        elements.prevBtn.style.visibility = isFocusView ? 'hidden' : 'visible';
-        elements.nextBtn.style.visibility = isFocusView ? 'hidden' : 'visible';
-        elements.todayBtn.style.visibility = isFocusView ? 'hidden' : 'visible';
+        const isSettingsView = currentView === 'settings';
+        const hidePager = isFocusView || isSettingsView;
+        elements.prevBtn.style.visibility = hidePager ? 'hidden' : 'visible';
+        elements.nextBtn.style.visibility = hidePager ? 'hidden' : 'visible';
+        elements.todayBtn.style.visibility = hidePager ? 'hidden' : 'visible';
 
         if (currentView === 'day') renderDayView();
         else if (currentView === 'week') renderWeekView();
         else if (currentView === 'month') renderMonthView();
         else if (currentView === 'year') renderYearView();
         else if (currentView === 'focus') renderFocusView();
+        else if (currentView === 'settings') renderSettingsView();
+    };
+
+    const parseCellContent = (dateKey) => {
+        const syncMarker = "[[FOCUS_SYNC_START]]";
+        const content = plannerData.month[dateKey] || "";
+        const markerIndex = content.indexOf(syncMarker);
+
+        const userContent = markerIndex !== -1 ? content.substring(0, markerIndex).trim() : content.trim();
+        let syncedItems = [];
+        if (markerIndex !== -1) {
+            try {
+                const jsonStr = content.substring(markerIndex + syncMarker.length).trim();
+                syncedItems = JSON.parse(jsonStr);
+            } catch (e) { console.error("Sync parse error", e); }
+        }
+        return { userContent, syncedItems };
     };
 
     const updateHeader = () => {
@@ -201,14 +267,22 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let d = 1; d <= last; d++) {
             const date = new Date(y, m, d);
             const dateKey = getDateKey(date);
+            const { userContent, syncedItems } = parseCellContent(dateKey);
             const classList = ['calendar-day'];
             const hName = getHolidayName(date);
             if (isHoliday(date)) classList.push('is-holiday');
             if (isSaturday(date)) classList.push('is-saturday');
 
-            html += `<div class="${classList.join(' ')}">
+            const syncHtml = syncedItems.map(item => `
+                <div class="sync-item" data-jump-task-id="${item.id}">
+                    🚩 <span class="sync-item-type">${item.type.toUpperCase()}</span> ${item.title}
+                </div>
+            `).join('');
+
+            html += `<div class="${classList.join(' ')} clickable-day" data-date="${dateKey}">
                 <strong>${d}${hName ? `<span class="holiday-name">${hName}</span>` : ''}</strong>
-                <textarea class="calendar-input" data-date="${dateKey}">${plannerData.month[dateKey] || ''}</textarea>
+                <div class="calendar-day-content">${userContent}</div>
+                <div class="sync-list">${syncHtml}</div>
             </div>`;
         }
         elements.monthView.innerHTML = html + '</div></div>';
@@ -230,18 +304,26 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 7; i++) {
             const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay() + i);
             const dateKey = getDateKey(d);
-            const entry = plannerData.month[dateKey] || '';
+            const { userContent, syncedItems } = parseCellContent(dateKey);
             const badgeClass = ['badge'];
             const hName = getHolidayName(d);
             if (isHoliday(d)) badgeClass.push('is-holiday');
             if (isSaturday(d)) badgeClass.push('is-saturday');
+
+            const syncHtml = syncedItems.map(item => `
+                <div class="sync-item" data-jump-task-id="${item.id}">
+                    🚩 <span class="sync-item-type">${item.type.toUpperCase()}</span> ${item.title}
+                </div>
+            `).join('');
 
             html += `<div class="weekly-day-col">
                 <div class="${badgeClass.join(' ')}">
                     ${d.toLocaleDateString('ko-KR', { weekday: 'short', day: 'numeric' })}
                     ${hName ? `<span class="holiday-name">${hName}</span>` : ''}
                 </div>
-                <textarea class="week-input" data-date="${dateKey}">${entry}</textarea></div>`;
+                <textarea class="week-input" data-date="${dateKey}">${userContent}</textarea>
+                <div class="sync-list">${syncHtml}</div>
+            </div>`;
         }
         elements.weekView.innerHTML = html + '</div></div>';
     };
@@ -251,48 +333,172 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '<div class="year-grid">';
         for (let m = 0; m < 12; m++) {
             const dateKey = `${year}-${(m + 1).toString().padStart(2, '0')}`;
-            html += `<div class="year-month-card"><h3>${new Date(year, m).toLocaleString('default', { month: 'long' })}</h3>
-                <textarea class="year-input" data-month="${dateKey}">${plannerData.year[dateKey] || ''}</textarea></div>`;
+            const content = plannerData.year[dateKey] || '';
+            html += `<div class="year-month-card clickable-month" data-month="${dateKey}">
+                <h3>${new Date(year, m).toLocaleString('default', { month: 'long' })}</h3>
+                <div class="year-month-content">${content}</div>
+            </div>`;
         }
         elements.yearView.innerHTML = html + '</div>';
     };
 
+    const renderSettingsView = () => {
+        // GitHub Config
+        elements.ghUsernameInput.value = plannerData.settings.github.username;
+        elements.ghRepoInput.value = plannerData.settings.github.repo;
+        elements.ghTokenInput.value = plannerData.settings.github.token;
+
+        // Holiday Manager
+        let html = '';
+        const sortedKeys = Object.keys(plannerData.settings.holidays).sort((a, b) => {
+            // Solar MM-DD keys first, then YYYY-MM-DD
+            if (a.length !== b.length) return b.length - a.length; // Specific dates first
+            return a.localeCompare(b);
+        });
+
+        sortedKeys.forEach(key => {
+            const isRecurring = key.length === 5;
+            html += `
+                <div class="holiday-item" data-key="${key}">
+                    <input type="${isRecurring ? 'text' : 'date'}" class="holiday-date-input" value="${isRecurring ? '매년 ' + key : key}" readonly>
+                    <input type="text" class="holiday-name-input" value="${plannerData.settings.holidays[key]}" placeholder="Holiday Name">
+                    <button class="btn-delete-holiday" title="Delete holiday">×</button>
+                </div>
+            `;
+        });
+        elements.holidayManagerContainer.innerHTML = html || '<p style="text-align:center; color:var(--text-secondary);">No holidays defined.</p>';
+    };
+
     const renderFocusView = () => {
         elements.focusTasksList.innerHTML = '';
-        if (plannerData.focusTasks.length === 0) {
+
+        // Add datalist for assignees once
+        let datalist = document.getElementById('assignees-list');
+        if (!datalist) {
+            datalist = document.createElement('datalist');
+            datalist.id = 'assignees-list';
+            document.body.appendChild(datalist);
+        }
+        datalist.innerHTML = (plannerData.assignees || []).map(a => `<option value="${a}">`).join('');
+
+        const renderTaskCard = (task, taskIndex, isArchived = false) => {
+            // Calculate progress
+            let totalTodos = 0;
+            let completedTodos = 0;
+            (task.subTasks || []).forEach(sub => {
+                (sub.todos || []).forEach(todo => {
+                    totalTodos++;
+                    if (todo.done) completedTodos++;
+                });
+            });
+            const progress = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
+
+            const taskEl = document.createElement('div');
+            taskEl.className = `focus-task-card task-level ${isArchived ? 'archived' : ''}`;
+            taskEl.innerHTML = `
+                <div class="task-progress-container">
+                    <div class="task-progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <div class="task-header">
+                    <div class="header-main-row">
+                        <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${taskIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        <div class="header-btns">
+                            <span class="progress-badge">${progress}%</span>
+                            ${isArchived ? `
+                                <button class="btn-restore-task" data-task-id="${taskIndex}" title="Restore Task">↺</button>
+                            ` : `
+                                <button class="btn-sub-add" data-task-id="${taskIndex}" title="Add Sub-Task">+ Sub</button>
+                                <button class="btn-complete-task" data-task-id="${taskIndex}" title="Complete & Archive">✔</button>
+                            `}
+                            <button class="btn-delete-task" data-task-id="${taskIndex}" data-is-archived="${isArchived}" title="Delete Task">×</button>
+                        </div>
+                    </div>
+                    <div class="meta-row main-meta">
+                        <div class="meta-item">
+                            <label>📅 Due</label>
+                            <input type="date" class="meta-input" value="${task.dueDate || ''}" data-task-id="${taskIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        </div>
+                        <div class="meta-item">
+                            <label>👤 Owner</label>
+                            <input type="text" class="meta-input" value="${task.owner || ''}" placeholder="Assignee" data-task-id="${taskIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        </div>
+                    </div>
+                </div>
+                <div class="sub-tasks-container">
+                    ${(task.subTasks || []).map((sub, subIndex) => {
+                if (!sub.todos) sub.todos = [];
+                return `
+                        <div class="sub-task-item">
+                            <div class="sub-header-container">
+                                <div class="sub-header">
+                                    <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    ${!isArchived ? `
+                                    <div class="header-btns">
+                                        <button class="btn-todo-add" data-task-id="${taskIndex}" data-sub-id="${subIndex}">+ Todo</button>
+                                        <button class="btn-delete-sub" data-task-id="${taskIndex}" data-sub-id="${subIndex}">×</button>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                <div class="meta-row sub-meta">
+                                    <div class="meta-item">
+                                        <label>📅</label>
+                                        <input type="date" class="meta-input" value="${sub.dueDate || ''}" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    </div>
+                                    <div class="meta-item">
+                                        <label>👤</label>
+                                        <input type="text" class="meta-input" value="${sub.owner || ''}" placeholder="Assignee" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="todos-container">
+                                ${sub.todos.map((todo, todoIndex) => `
+                                    <div class="todo-item">
+                                        <div class="todo-main-row">
+                                            <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            ${!isArchived ? `<button class="btn-delete-todo" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}">×</button>` : ''}
+                                        </div>
+                                        <div class="meta-row todo-meta">
+                                            <div class="meta-item">
+                                                <label>📅</label>
+                                                <input type="date" class="meta-input" value="${todo.dueDate || ''}" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            </div>
+                                            <div class="meta-item">
+                                                <label>👤</label>
+                                                <input type="text" class="meta-input" value="${todo.owner || ''}" placeholder="Owner" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            `;
+            return taskEl;
+        };
+
+        if (plannerData.focusTasks.length === 0 && plannerData.archivedTasks.length === 0) {
             elements.focusTasksList.innerHTML = '<div class="empty-state">No focus tasks active. Click "+ Add New Task" to begin.</div>';
             return;
         }
-        plannerData.focusTasks.forEach((task, index) => {
-            const card = document.createElement('div');
-            card.className = 'focus-task-card';
-            card.innerHTML = `
-                <div class="task-header">
-                    <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Enter Task Title..." data-index="${index}" data-field="title">
-                </div>
-                <div class="task-body">
-                    <div class="task-meta">
-                        <select class="priority-select" data-index="${index}" data-field="priority">
-                            <option value="High" ${task.priority === 'High' ? 'selected' : ''}>High Priority</option>
-                            <option value="Medium" ${task.priority === 'Medium' || !task.priority ? 'selected' : ''}>Medium</option>
-                            <option value="Low" ${task.priority === 'Low' ? 'selected' : ''}>Low</option>
-                        </select>
-                        <select class="status-select" data-index="${index}" data-field="status">
-                            <option value="Planned" ${task.status === 'Planned' || !task.status ? 'selected' : ''}>Planned</option>
-                            <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                            <option value="On Hold" ${task.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-                            <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                        </select>
-                    </div>
-                    <textarea class="task-textarea" placeholder="Add details or progress updates..." data-index="${index}" data-field="notes">${task.notes || ''}</textarea>
-                </div>
-                <div class="task-footer">
-                    <button class="btn-delete" data-index="${index}">Delete</button>
-                    <span class="badge">Created: ${task.created || getDateKey(new Date())}</span>
-                </div>
-            `;
-            elements.focusTasksList.appendChild(card);
+
+        // Render Active Tasks
+        plannerData.focusTasks.forEach((task, taskIndex) => {
+            elements.focusTasksList.appendChild(renderTaskCard(task, taskIndex, false));
         });
+
+        // Render Archive Section if any
+        if (plannerData.archivedTasks.length > 0) {
+            const archiveHeader = document.createElement('div');
+            archiveHeader.className = 'archive-header';
+            archiveHeader.innerHTML = `<h3>Archive (Completed Tasks)</h3><div class="archive-divider"></div>`;
+            elements.focusTasksList.appendChild(archiveHeader);
+
+            plannerData.archivedTasks.forEach((task, taskIndex) => {
+                elements.focusTasksList.appendChild(renderTaskCard(task, taskIndex, true));
+            });
+        }
     };
 
     const setGHStatus = (status, text) => {
@@ -369,6 +575,49 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${y}-${m}-${d}`;
     };
 
+    const syncFocusTasksToCalendar = () => {
+        const syncMarker = "[[FOCUS_SYNC_START]]";
+        const entriesByDate = {};
+
+        // Collect all active focus task items with due dates
+        plannerData.focusTasks.forEach((task, idx) => {
+            if (task.dueDate) {
+                if (!entriesByDate[task.dueDate]) entriesByDate[task.dueDate] = [];
+                entriesByDate[task.dueDate].push({ id: idx, type: 'task', title: task.title || 'Untitled' });
+            }
+            (task.subTasks || []).forEach(sub => {
+                if (sub.dueDate) {
+                    if (!entriesByDate[sub.dueDate]) entriesByDate[sub.dueDate] = [];
+                    entriesByDate[sub.dueDate].push({ id: idx, type: 'sub', title: sub.title || 'Untitled' });
+                }
+                (sub.todos || []).forEach(todo => {
+                    if (todo.dueDate) {
+                        if (!entriesByDate[todo.dueDate]) entriesByDate[todo.dueDate] = [];
+                        entriesByDate[todo.dueDate].push({ id: idx, type: 'todo', title: todo.title || 'Untitled' });
+                    }
+                });
+            });
+        });
+
+        // Update plannerData.month for all affected (and previously affected) dates
+        const allDates = new Set([...Object.keys(entriesByDate), ...Object.keys(plannerData.month)]);
+
+        allDates.forEach(dateKey => {
+            let content = plannerData.month[dateKey] || "";
+            const markerIndex = content.indexOf(syncMarker);
+            let userContent = markerIndex !== -1 ? content.substring(0, markerIndex).trim() : content.trim();
+
+            const taskList = entriesByDate[dateKey] || [];
+            if (taskList.length > 0) {
+                const syncBlock = "\n" + syncMarker + "\n" + JSON.stringify(taskList);
+                plannerData.month[dateKey] = (userContent + syncBlock).trim();
+            } else if (markerIndex !== -1) {
+                // If marker exists but no tasks for this date, remove it
+                plannerData.month[dateKey] = userContent;
+            }
+        });
+    };
+
     const setupEventListeners = () => {
         elements.navLinks.forEach(link => link.addEventListener('click', () => {
             elements.navLinks.forEach(l => l.classList.remove('active'));
@@ -403,47 +652,128 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (t.dataset.field) dayEntry[t.dataset.field] = t.value;
             } else if (currentView === 'month') {
-                if (t.classList.contains('calendar-input')) plannerData.month[t.dataset.date] = t.value;
+                if (t.classList.contains('calendar-input')) {
+                    const { userContent, syncedItems } = parseCellContent(t.dataset.date);
+                    const syncMarker = "[[FOCUS_SYNC_START]]";
+                    const newContent = t.value + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+                    plannerData.month[t.dataset.date] = newContent.trim();
+                }
                 if (t.classList.contains('month-summary-input')) {
                     if (!plannerData.monthSummary) plannerData.monthSummary = {};
                     plannerData.monthSummary[t.dataset.month] = t.value;
                 }
             } else if (currentView === 'week' && t.classList.contains('week-input')) {
-                plannerData.month[t.dataset.date] = t.value;
+                const { userContent, syncedItems } = parseCellContent(t.dataset.date);
+                const syncMarker = "[[FOCUS_SYNC_START]]";
+                const newContent = t.value + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+                plannerData.month[t.dataset.date] = newContent.trim();
             } else if (currentView === 'year' && t.classList.contains('year-input')) {
                 plannerData.year[t.dataset.month] = t.value;
             } else if (currentView === 'focus') {
-                const index = t.dataset.index;
-                const field = t.dataset.field;
-                if (plannerData.focusTasks[index]) {
-                    plannerData.focusTasks[index][field] = t.value;
+                const { taskId, subId, todoId, field, isArchived } = t.dataset;
+                if (taskId !== undefined) {
+                    const taskList = isArchived === 'true' ? plannerData.archivedTasks : plannerData.focusTasks;
+                    const task = taskList[taskId];
+                    if (todoId !== undefined) {
+                        const todo = task.subTasks[subId].todos[todoId];
+                        if (t.type === 'checkbox') todo.done = t.checked;
+                        else todo[field] = t.value;
+                    } else if (subId !== undefined) {
+                        task.subTasks[subId][field] = t.value;
+                    } else {
+                        task[field] = t.value;
+                    }
+
+                    // Auto-save assignee to common list
+                    if (field === 'owner' && t.value.trim().length > 0) {
+                        if (!plannerData.assignees) plannerData.assignees = [];
+                        if (!plannerData.assignees.includes(t.value.trim())) {
+                            plannerData.assignees.push(t.value.trim());
+                        }
+                    }
+
+                    // Sync to calendar if dueDate or title changed
+                    if (field === 'dueDate' || field === 'title') {
+                        syncFocusTasksToCalendar();
+                    }
                 }
             }
             saveData();
+            if (currentView === 'focus' && e.target.type === 'checkbox') renderFocusView();
         });
 
         if (elements.addTaskBtn) {
             elements.addTaskBtn.addEventListener('click', () => {
                 plannerData.focusTasks.push({
                     title: '',
-                    notes: '',
-                    priority: 'Medium',
-                    status: 'Planned',
+                    subTasks: [],
                     created: getDateKey(new Date())
                 });
                 saveData();
                 renderFocusView();
+                // Focus newly added task
+                const inputs = elements.focusTasksList.querySelectorAll('.task-title-input');
+                inputs[inputs.length - 1].focus();
             });
         }
 
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-delete')) {
-                const index = e.target.dataset.index;
-                if (confirm('Delete this task?')) {
-                    plannerData.focusTasks.splice(index, 1);
-                    saveData();
-                    renderFocusView();
+            const t = e.target;
+            const { taskId, subId, todoId, isArchived } = t.dataset;
+            const taskList = isArchived === 'true' ? plannerData.archivedTasks : plannerData.focusTasks;
+
+            if (t.classList.contains('btn-delete-task')) {
+                if (confirm('Delete this task permanently?')) {
+                    taskList.splice(taskId, 1);
+                    syncFocusTasksToCalendar();
+                    saveData(); renderFocusView();
                 }
+            } else if (t.classList.contains('btn-complete-task')) {
+                const [task] = plannerData.focusTasks.splice(taskId, 1);
+                plannerData.archivedTasks.unshift(task);
+                syncFocusTasksToCalendar();
+                saveData(); renderFocusView();
+            } else if (t.classList.contains('btn-restore-task')) {
+                const [task] = plannerData.archivedTasks.splice(taskId, 1);
+                plannerData.focusTasks.push(task);
+                syncFocusTasksToCalendar();
+                saveData(); renderFocusView();
+            } else if (t.classList.contains('btn-sub-add')) {
+                if (!plannerData.focusTasks[taskId].subTasks) plannerData.focusTasks[taskId].subTasks = [];
+                plannerData.focusTasks[taskId].subTasks.push({ title: '', todos: [] });
+                saveData(); renderFocusView();
+                const inputs = elements.focusTasksList.querySelectorAll(`.sub-title-input[data-task-id="${taskId}"]`);
+                inputs[inputs.length - 1].focus();
+            } else if (t.classList.contains('btn-delete-sub')) {
+                plannerData.focusTasks[taskId].subTasks.splice(subId, 1);
+                syncFocusTasksToCalendar();
+                saveData(); renderFocusView();
+            } else if (t.classList.contains('btn-todo-add')) {
+                if (!plannerData.focusTasks[taskId].subTasks[subId].todos) plannerData.focusTasks[taskId].subTasks[subId].todos = [];
+                plannerData.focusTasks[taskId].subTasks[subId].todos.push({ title: '', done: false });
+                saveData(); renderFocusView();
+                const inputs = elements.focusTasksList.querySelectorAll(`.todo-title-input[data-task-id="${taskId}"][data-sub-id="${subId}"]`);
+                inputs[inputs.length - 1].focus();
+            } else if (t.classList.contains('btn-delete-todo')) {
+                plannerData.focusTasks[taskId].subTasks[subId].todos.splice(todoId, 1);
+                syncFocusTasksToCalendar();
+                saveData(); renderFocusView();
+            } else if (t.closest('.sync-item')) {
+                const jumpId = t.closest('.sync-item').dataset.jumpTaskId;
+                currentView = 'focus';
+                elements.navLinks.forEach(l => {
+                    l.classList.toggle('active', l.dataset.view === 'focus');
+                });
+                renderActiveView();
+
+                setTimeout(() => {
+                    const targetCard = document.querySelector(`.focus-task-card[data-task-id="${jumpId}"]`);
+                    if (targetCard) {
+                        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetCard.classList.add('jump-highlight');
+                        setTimeout(() => targetCard.classList.remove('jump-highlight'), 3000);
+                    }
+                }, 100);
             }
         });
 
@@ -460,26 +790,165 @@ document.addEventListener('DOMContentLoaded', () => {
             }; r.readAsText(f);
         });
 
-        // GitHub Sync
-        elements.syncBtn.addEventListener('click', syncWithGitHub);
-        elements.settingsBtn.addEventListener('click', () => {
-            elements.ghUsername.value = ghConfig.username;
-            elements.ghRepo.value = ghConfig.repo;
-            elements.ghToken.value = ghConfig.token;
-            elements.ghModal.classList.remove('hidden');
+        // Day Editor Modal
+        elements.closeDayModal.addEventListener('click', () => {
+            elements.dayEditorModal.classList.add('hidden');
         });
 
-        elements.closeGhModal.addEventListener('click', () => elements.ghModal.classList.add('hidden'));
+        elements.saveDayBtn.addEventListener('click', () => {
+            const { syncedItems } = parseCellContent(selectedDateKey);
+            const syncMarker = "[[FOCUS_SYNC_START]]";
+            const userContent = elements.modalDayInput.value.trim();
+            const newContent = userContent + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+            plannerData.month[selectedDateKey] = newContent.trim();
+            saveData();
+            renderActiveView();
+            elements.dayEditorModal.classList.add('hidden');
+        });
 
-        elements.saveGhSettings.addEventListener('click', () => {
-            ghConfig.username = elements.ghUsername.value.trim();
-            ghConfig.repo = elements.ghRepo.value.trim();
-            ghConfig.token = elements.ghToken.value.trim();
-            localStorage.setItem('gh_username', ghConfig.username);
-            localStorage.setItem('gh_repo', ghConfig.repo);
-            localStorage.setItem('gh_token', ghConfig.token);
-            elements.ghModal.classList.add('hidden');
-            alert('GitHub settings saved!');
+        // Month Editor Modal (Year View)
+        elements.closeMonthModal.addEventListener('click', () => {
+            elements.monthEditorModal.classList.add('hidden');
+        });
+
+        elements.saveMonthBtn.addEventListener('click', () => {
+            const content = elements.modalMonthInput.value.trim();
+            plannerData.year[selectedMonthKey] = content;
+            saveData();
+            renderActiveView();
+            elements.monthEditorModal.classList.add('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            const t = e.target.closest('.clickable-day');
+            if (t && currentView === 'month') {
+                const dateKey = t.dataset.date;
+                selectedDateKey = dateKey;
+                const { userContent } = parseCellContent(dateKey);
+                elements.modalDateTitle.innerText = dateKey;
+                elements.modalDayInput.value = userContent;
+                elements.dayEditorModal.classList.remove('hidden');
+                elements.modalDayInput.focus();
+            }
+
+            const tm = e.target.closest('.clickable-month');
+            if (tm && currentView === 'year') {
+                const monthKey = tm.dataset.month;
+                selectedMonthKey = monthKey;
+                const content = plannerData.year[monthKey] || '';
+                elements.modalMonthTitle.innerText = new Date(monthKey + '-01').toLocaleString('default', { year: 'numeric', month: 'long' });
+                elements.modalMonthInput.value = content;
+                elements.monthEditorModal.classList.remove('hidden');
+                elements.modalMonthInput.focus();
+            }
+        });
+
+        // Month Editor Modal (Year View)
+        elements.closeMonthModal.addEventListener('click', () => {
+            elements.monthEditorModal.classList.add('hidden');
+        });
+
+        // Date Header Navigation
+        elements.headerDateDisplay.addEventListener('click', () => {
+            elements.headerDateJump.showPicker();
+        });
+
+        elements.headerDateJump.addEventListener('change', (e) => {
+            const selectedDate = new Date(e.target.value);
+            if (!isNaN(selectedDate.getTime())) {
+                currentDate = selectedDate;
+                renderActiveView();
+            }
+        });
+
+        // Holiday Editor Modal
+        elements.addHolidayBtn.addEventListener('click', () => {
+            elements.holidayModalName.value = '';
+            elements.holidayModalRecurring.checked = false;
+            elements.holidayModalSpecificContainer.classList.remove('hidden');
+            elements.holidayModalRecurringContainer.classList.add('hidden');
+            elements.holidayModalDate.value = getDateKey(new Date());
+            elements.holidayModalRecurringDate.value = '';
+            elements.holidayEditorModal.classList.remove('hidden');
+        });
+
+        elements.holidayModalRecurring.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                elements.holidayModalSpecificContainer.classList.add('hidden');
+                elements.holidayModalRecurringContainer.classList.remove('hidden');
+            } else {
+                elements.holidayModalSpecificContainer.classList.remove('hidden');
+                elements.holidayModalRecurringContainer.classList.add('hidden');
+            }
+        });
+
+        elements.closeHolidayModalBtn.addEventListener('click', () => {
+            elements.holidayEditorModal.classList.add('hidden');
+        });
+
+        elements.saveHolidayModalBtn.addEventListener('click', () => {
+            const name = elements.holidayModalName.value.trim();
+            if (!name) { alert("Please enter a holiday name."); return; }
+
+            let key = '';
+            if (elements.holidayModalRecurring.checked) {
+                key = elements.holidayModalRecurringDate.value.trim();
+                if (!/^\d{2}-\d{2}$/.test(key)) {
+                    alert("Invalid format for recurring holiday. Use MM-DD (e.g., 12-25).");
+                    return;
+                }
+            } else {
+                key = elements.holidayModalDate.value;
+                if (!key) { alert("Please select a date."); return; }
+            }
+
+            plannerData.settings.holidays[key] = name;
+            saveData();
+            renderSettingsView();
+            elements.holidayEditorModal.classList.add('hidden');
+        });
+
+        elements.holidayManagerContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-delete-holiday')) {
+                const key = e.target.closest('.holiday-item').dataset.key;
+                if (confirm(`Delete "${plannerData.settings.holidays[key]}"?`)) {
+                    delete plannerData.settings.holidays[key];
+                    saveData();
+                    renderSettingsView();
+                }
+            }
+        });
+
+        elements.holidayManagerContainer.addEventListener('change', (e) => {
+            if (e.target.classList.contains('holiday-name-input')) {
+                const key = e.target.closest('.holiday-item').dataset.key;
+                plannerData.settings.holidays[key] = e.target.value.trim();
+                saveData();
+            }
+        });
+
+        elements.saveGhSettingsBtn.addEventListener('click', () => {
+            plannerData.settings.github.username = elements.ghUsernameInput.value.trim();
+            plannerData.settings.github.repo = elements.ghRepoInput.value.trim();
+            plannerData.settings.github.token = elements.ghTokenInput.value.trim();
+
+            // Sync legacy storage for compatibility with syncWithGitHub functions if any
+            localStorage.setItem('gh_username', plannerData.settings.github.username);
+            localStorage.setItem('gh_repo', plannerData.settings.github.repo);
+            localStorage.setItem('gh_token', plannerData.settings.github.token);
+
+            saveData();
+            alert("GitHub settings saved.");
+        });
+
+        // Toggle Settings icon in header if any was clicked (legacy was removed, but let's ensure nav works)
+        elements.navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                elements.navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                currentView = link.dataset.view;
+                renderActiveView();
+            });
         });
     };
 

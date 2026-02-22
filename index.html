@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Antigravity Daily Report</title>
+    <title>PLANNER</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,34 +16,37 @@
 <body>
     <div class="app-layout">
         <header class="app-header">
+            <div class="logo-container">
+                <h1 id="logo">PLANNER</h1>
+            </div>
             <div class="header-main">
-                <div class="logo">Antigravity</div>
+                <div class="date-display-wrapper">
+                    <div id="current-date-display" class="date-header-clickable" title="Click to jump to date"></div>
+                    <input type="date" id="header-date-jump" class="hidden-date-input">
+                </div>
+                <p id="view-indicator" class="tagline">Daily Report</p>
+            </div>
+            <div class="header-right">
                 <ul class="nav-links">
                     <li data-view="year">Year</li>
                     <li data-view="month">Month</li>
                     <li data-view="week">Week</li>
                     <li data-view="day" class="active">Day</li>
                     <li data-view="focus">Focus</li>
+                    <li data-view="settings">Settings</li>
                 </ul>
-            </div>
-
-            <div class="header-center">
-                <h1 id="current-date-display">2026. 02. 22</h1>
-                <p id="view-indicator" class="tagline">Daily Report</p>
-            </div>
-
-            <div class="header-right">
-                <div class="nav-actions">
-                    <button id="export-btn" class="btn-text">Export</button>
-                    <input type="file" id="import-input" style="display:none">
-                    <button id="import-btn" class="btn-text">Import</button>
-                    <button id="github-sync-btn" class="btn-text" title="Sync with GitHub">Sync</button>
-                    <button id="github-settings-btn" class="btn-icon">⚙</button>
-                </div>
-                <div class="date-pager">
-                    <button id="prev-btn" class="btn-icon">←</button>
-                    <button id="today-btn" class="btn-secondary">Today</button>
-                    <button id="next-btn" class="btn-icon">→</button>
+                <div class="header-actions">
+                    <div class="nav-actions">
+                        <button id="export-btn" class="btn-text">Export</button>
+                        <input type="file" id="import-input" style="display:none">
+                        <button id="import-btn" class="btn-text">Import</button>
+                        <button id="github-sync-btn" class="btn-text" title="Sync with GitHub">Sync</button>
+                    </div>
+                    <div class="date-pager">
+                        <button id="prev-btn" class="btn-icon">←</button>
+                        <button id="today-btn" class="btn-secondary">Today</button>
+                        <button id="next-btn" class="btn-icon">→</button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -109,28 +112,98 @@
                         </div>
                     </div>
                 </section>
+                <section id="settings-view" class="planner-view hidden">
+                    <div class="settings-layout">
+                        <header class="view-header">
+                            <div class="header-content">
+                                <h2>Settings</h2>
+                                <p class="tagline">Manage your application configuration and data</p>
+                            </div>
+                        </header>
+                        <div class="settings-grid">
+                            <section class="planner-section settings-card">
+                                <div class="card-header">
+                                    <h2>GitHub Synchronization</h2>
+                                </div>
+                                <div class="settings-body">
+                                    <div class="input-group">
+                                        <label>GitHub Username</label>
+                                        <input type="text" id="settings-gh-username" placeholder="e.g., bate98">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Repository Name</label>
+                                        <input type="text" id="settings-gh-repo" placeholder="e.g., daily-report-app">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Personal Access Token</label>
+                                        <input type="password" id="settings-gh-token" placeholder="ghp_xxxxxxxxxxxx">
+                                    </div>
+                                    <button id="save-settings-gh" class="btn-primary"
+                                        style="width:100%; margin-top:1rem;">Save GitHub Settings</button>
+                                </div>
+                            </section>
+                            <section class="planner-section settings-card">
+                                <div class="card-header">
+                                    <h2>Holiday Management</h2>
+                                    <button id="add-holiday-btn" class="btn-text">+ Add Holiday</button>
+                                </div>
+                                <div class="settings-body">
+                                    <div id="holiday-manager-container" class="holiday-manager-list">
+                                        <!-- Populated by JS -->
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
             </main>
         </div>
     </div>
-    <div id="github-modal" class="modal hidden">
+    </div>
+    <div id="holiday-editor-modal" class="modal hidden">
         <div class="modal-content">
-            <h3>GitHub Synchronization Settings</h3>
-            <p class="modal-desc">Enter your GitHub details to enable cross-device sync.</p>
-            <div class="input-group">
-                <label>GitHub Username</label>
-                <input type="text" id="gh-username" placeholder="e.g., bate98-fbf">
+            <h3>Add/Edit Holiday</h3>
+            <div class="settings-group">
+                <label>Holiday Name</label>
+                <input type="text" id="holiday-modal-name" placeholder="e.g., Independence Day">
             </div>
-            <div class="input-group">
-                <label>Repository Name</label>
-                <input type="text" id="gh-repo" placeholder="e.g., daily-report-app">
+            <div class="settings-group">
+                <label>
+                    <input type="checkbox" id="holiday-modal-recurring"> Recurring (Every Year)
+                </label>
             </div>
-            <div class="input-group">
-                <label>Personal Access Token (PAT)</label>
-                <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+            <div class="settings-group" id="holiday-modal-specific-container">
+                <label>Date</label>
+                <input type="date" id="holiday-modal-date">
+            </div>
+            <div class="settings-group hidden" id="holiday-modal-recurring-container">
+                <label>Date (MM-DD)</label>
+                <input type="text" id="holiday-modal-recurring-date" placeholder="08-15">
             </div>
             <div class="modal-actions">
-                <button id="save-gh-settings" class="btn-primary">Save Settings</button>
-                <button id="close-gh-modal" class="btn-text">Close</button>
+                <button id="save-holiday-modal" class="btn-primary">Save Holiday</button>
+                <button id="close-holiday-modal" class="btn-text">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <div id="day-editor-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-date-title">Date Title</h3>
+            <textarea id="modal-day-input" placeholder="Enter your plans or notes for this day..."></textarea>
+            <div class="modal-actions">
+                <button id="save-day-btn" class="btn-primary">Save Changes</button>
+                <button id="close-day-modal" class="btn-text">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <div id="month-editor-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-month-title">Month Title</h3>
+            <textarea id="modal-month-input"
+                placeholder="Enter your yearly goals or plans for this month..."></textarea>
+            <div class="modal-actions">
+                <button id="save-month-btn" class="btn-primary">Save Changes</button>
+                <button id="close-month-modal" class="btn-text">Cancel</button>
             </div>
         </div>
     </div>
