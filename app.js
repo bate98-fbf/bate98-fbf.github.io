@@ -519,9 +519,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!username || !repo || !token) return { error: "Missing configuration" };
         try {
             const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
-                headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' }
             });
-            if (res.status === 404) return { data: null, sha: null };
+            if (res.status === 404) return { data: null, sha: null, message: `Repository or file "data.json" not found. Please check if "repo" is set to "${repo}" and if the repository exists under the user "${username}".` };
             if (!res.ok) return { error: `Fetch failed (${res.status})` };
             const fileData = await res.json();
             const content = decodeURIComponent(atob(fileData.content).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
                 method: 'PUT',
-                headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             if (!res.ok) {
@@ -573,28 +573,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         setGHStatus('syncing', 'Syncing...');
 
-        const remoteResult = await fetchFromGitHub();
-        if (remoteResult.error) {
-            setGHStatus('error', 'Sync Failed', remoteResult.error);
-            return;
-        }
+        try {
+            const remoteResult = await fetchFromGitHub();
+            if (remoteResult.error) {
+                setGHStatus('error', 'Sync Failed', remoteResult.error + (remoteResult.message ? "\n\n" + remoteResult.message : ""));
+                return;
+            }
 
-        let dataToPush = plannerData;
-        let remoteSha = null;
+            let dataToPush = plannerData;
+            let remoteSha = null;
 
-        if (remoteResult.data) {
-            remoteSha = remoteResult.sha;
-            plannerData = mergePlannerData(plannerData, remoteResult.data);
-            saveData();
-            renderActiveView();
-            dataToPush = plannerData;
-        }
+            if (remoteResult.data) {
+                remoteSha = remoteResult.sha;
+                plannerData = mergePlannerData(plannerData, remoteResult.data);
+                saveData();
+                renderActiveView();
+                dataToPush = plannerData;
+            }
 
-        const pushResult = await pushToGitHub(dataToPush, remoteSha);
-        if (pushResult.success) {
-            setGHStatus('success', 'Synced!');
-        } else {
-            setGHStatus('error', 'Sync Failed', pushResult.error);
+            const pushResult = await pushToGitHub(dataToPush, remoteSha);
+            if (pushResult.success) {
+                setGHStatus('success', 'Synced!');
+            } else {
+                setGHStatus('error', 'Sync Failed', pushResult.error + (pushResult.error.includes('404') ? "\n\nHint: Double check if your repository name in Settings is correct." : ""));
+            }
+        } catch (err) {
+            console.error("Sync Error:", err);
+            setGHStatus('error', 'Sync Failed', err.message);
         }
     };
 
