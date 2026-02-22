@@ -546,7 +546,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const syncWithGitHub = async () => {
         const { username, repo, token } = ghConfig;
         if (!username || !repo || !token) {
-            elements.ghModal.classList.remove('hidden');
+            alert("Please configure GitHub settings first.");
+            currentView = 'settings';
+            elements.navLinks.forEach(l => l.classList.toggle('active', l.dataset.view === 'settings'));
+            renderActiveView();
             return;
         }
         setGHStatus('syncing', 'Syncing...');
@@ -621,7 +624,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const setupEventListeners = () => {
         elements.navLinks.forEach(link => link.addEventListener('click', () => {
             elements.navLinks.forEach(l => l.classList.remove('active'));
-            link.classList.add('active'); currentView = link.dataset.view; renderActiveView();
+            link.classList.add('active'); currentView = link.dataset.view;
+            renderActiveView();
         }));
 
         const changeDate = (offset) => {
@@ -843,10 +847,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Month Editor Modal (Year View)
-        elements.closeMonthModal.addEventListener('click', () => {
-            elements.monthEditorModal.classList.add('hidden');
-        });
 
         // Date Header Navigation
         elements.headerDateDisplay.addEventListener('click', () => {
@@ -941,15 +941,10 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("GitHub settings saved.");
         });
 
-        // Toggle Settings icon in header if any was clicked (legacy was removed, but let's ensure nav works)
-        elements.navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                elements.navLinks.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                currentView = link.dataset.view;
-                renderActiveView();
-            });
-        });
+        // GitHub Sync
+        if (elements.syncBtn) {
+            elements.syncBtn.addEventListener('click', syncWithGitHub);
+        }
     };
 
     init();
