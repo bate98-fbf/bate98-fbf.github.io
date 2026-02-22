@@ -731,6 +731,38 @@ textarea {
     }
 }
 
+/* Mobile Landscape Optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+    .app-header {
+        position: static;
+        /* Header scrolls away to save vertical space */
+        padding: 0.5rem 1rem;
+    }
+
+    .header-main {
+        gap: 1rem;
+    }
+
+    .logo {
+        font-size: 1.2rem;
+    }
+
+    .tagline {
+        display: none;
+        /* Hide tagline in landscape to save space */
+    }
+
+    .app-container {
+        padding: 0.5rem;
+    }
+
+    .app-layout {
+        height: auto;
+        /* Allow layout to grow with content */
+        overflow: visible;
+    }
+}
+
 /* Touch Device Optimization */
 @media (hover: none) {
     .nav-links li:active {
