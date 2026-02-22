@@ -59,11 +59,21 @@
                 <section id="month-view" class="planner-view hidden"></section>
                 <section id="week-view" class="planner-view hidden"></section>
                 <section id="day-view" class="planner-view">
+                    <div class="day-navigation">
+                        <button id="day-prev-btn" class="btn-icon">←</button>
+                        <button id="day-today-btn" class="btn-secondary">Today</button>
+                        <button id="day-next-btn" class="btn-icon">→</button>
+                    </div>
                     <div class="day-layout">
                         <section class="planner-section timeline-card">
                             <div class="card-header">
                                 <h2>Time Log</h2>
-                                <span class="badge">04:00 - 02:00</span>
+                                <div class="header-btns">
+                                    <button id="copy-plan-btn" class="btn-text" title="Copy today's Plan column">Copy
+                                        Plan</button>
+                                    <button id="paste-plan-btn" class="btn-text"
+                                        title="Paste copied Plan to today">Paste Plan</button>
+                                </div>
                             </div>
                             <div id="timeline-container" class="timeline-container"></div>
                         </section>

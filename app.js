@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn: document.getElementById('prev-btn'),
         nextBtn: document.getElementById('next-btn'),
         todayBtn: document.getElementById('today-btn'),
+        dayPrevBtn: document.getElementById('day-prev-btn'),
+        dayNextBtn: document.getElementById('day-next-btn'),
+        dayTodayBtn: document.getElementById('day-today-btn'),
         saveDataBtn: document.getElementById('save-data-btn'),
         exportBtn: document.getElementById('export-btn'),
         importBtn: document.getElementById('import-btn'),
@@ -47,7 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
         modalMonthTitle: document.getElementById('modal-month-title'),
         modalMonthInput: document.getElementById('modal-month-input'),
         saveMonthBtn: document.getElementById('save-month-btn'),
-        closeMonthModal: document.getElementById('close-month-modal')
+        closeMonthModal: document.getElementById('close-month-modal'),
+        copyPlanBtn: document.getElementById('copy-plan-btn'),
+        pastePlanBtn: document.getElementById('paste-plan-btn')
     };
 
     let currentDate = new Date();
@@ -205,7 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dayData.activities) dayData.activities = {};
         if (!dayData.focus) dayData.focus = {};
 
-        elements.timelineContainer.innerHTML = '';
+        elements.timelineContainer.innerHTML = `
+            <div class="timeline-row timeline-header">
+                <div class="time-label">Time</div>
+                <div class="column-header">PLAN</div>
+                <div class="column-header">DO</div>
+            </div>
+        `;
 
         // Loop from 04:00 to 02:00 (next day) in 30-minute steps
         for (let h = 4; h <= 26; h++) {
@@ -702,6 +713,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${y}-${m}-${d}`;
     };
 
+    const getTimestamp = (date) => {
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        const hh = date.getHours().toString().padStart(2, '0');
+        const mm = date.getMinutes().toString().padStart(2, '0');
+        const ss = date.getSeconds().toString().padStart(2, '0');
+        return `${y}-${m}-${d}_${hh}${mm}${ss}`;
+    };
+
     const syncFocusTasksToCalendar = () => {
         const syncMarker = "[[FOCUS_SYNC_START]]";
         const entriesByDate = {};
@@ -763,6 +784,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.prevBtn.addEventListener('click', () => changeDate(-1));
         elements.nextBtn.addEventListener('click', () => changeDate(1));
         elements.todayBtn.addEventListener('click', () => { currentDate = new Date(); renderActiveView(); });
+
+        elements.dayPrevBtn.addEventListener('click', () => changeDate(-1));
+        elements.dayNextBtn.addEventListener('click', () => changeDate(1));
+        elements.dayTodayBtn.addEventListener('click', () => { currentDate = new Date(); renderActiveView(); });
 
         document.addEventListener('input', (e) => {
             const t = e.target; const dk = getDateKey(currentDate);
@@ -952,10 +977,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        elements.exportBtn.addEventListener('click', () => {
-            const blob = new Blob([JSON.stringify(plannerData, null, 2)], { type: 'application/json' });
+        elements.exportBtn.addEventListener('click', async () => {
+            const fileName = `planner_backup_${getTimestamp(new Date())}.json`;
+            const content = JSON.stringify(plannerData, null, 2);
+
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: fileName,
+                        types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    console.error("Save picker failed, falling back", e);
+                }
+            }
+
+            // Fallback
+            const blob = new Blob([content], { type: 'application/json' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `planner_backup_${getDateKey(new Date())}.json`; a.click();
+            a.download = fileName; a.click();
         });
 
         elements.importInput.addEventListener('change', (e) => {
@@ -1148,6 +1193,49 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.syncBtn) {
             elements.syncBtn.addEventListener('click', syncWithGitHub);
         }
+
+        elements.copyPlanBtn.addEventListener('click', () => {
+            const dk = getDateKey(currentDate);
+            const dayEntry = plannerData.day[dk];
+            if (!dayEntry || !dayEntry.activities) {
+                alert("No plans found for today to copy.");
+                return;
+            }
+            const planToCopy = {};
+            Object.keys(dayEntry.activities).forEach(time => {
+                if (dayEntry.activities[time].plan) {
+                    planToCopy[time] = dayEntry.activities[time].plan;
+                }
+            });
+            if (Object.keys(planToCopy).length === 0) {
+                alert("The Plan column is empty.");
+                return;
+            }
+            localStorage.setItem('antigravity_copied_plan', JSON.stringify(planToCopy));
+            alert("Daily Plan copied! You can now go to another date and paste it.");
+        });
+
+        elements.pastePlanBtn.addEventListener('click', () => {
+            const raw = localStorage.getItem('antigravity_copied_plan');
+            if (!raw) {
+                alert("No copied plan found. Please copy one first.");
+                return;
+            }
+            const copiedPlan = JSON.parse(raw);
+            const dk = getDateKey(currentDate);
+            if (!plannerData.day[dk]) plannerData.day[dk] = { activities: {}, focus: {} };
+            const dayEntry = plannerData.day[dk];
+            if (!dayEntry.activities) dayEntry.activities = {};
+
+            Object.keys(copiedPlan).forEach(time => {
+                if (!dayEntry.activities[time]) dayEntry.activities[time] = { plan: '', do: '' };
+                dayEntry.activities[time].plan = copiedPlan[time];
+            });
+
+            saveData();
+            renderDayView();
+            alert("Plan pasted!");
+        });
     };
 
     init();
