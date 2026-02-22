@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn: document.getElementById('prev-btn'),
         nextBtn: document.getElementById('next-btn'),
         todayBtn: document.getElementById('today-btn'),
+        saveDataBtn: document.getElementById('save-data-btn'),
         exportBtn: document.getElementById('export-btn'),
         importBtn: document.getElementById('import-btn'),
         importInput: document.getElementById('import-input'),
@@ -753,6 +754,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentView === 'focus' && e.target.type === 'checkbox') renderFocusView();
         });
 
+        // Day View Textarea Auto-save
+        document.addEventListener('change', (e) => {
+            const t = e.target;
+            if (currentView === 'day' && t.tagName === 'TEXTAREA' && t.dataset.field) {
+                const dk = getDateKey(currentDate);
+                if (!plannerData.day[dk]) plannerData.day[dk] = { activities: {}, focus: {} };
+                plannerData.day[dk][t.dataset.field] = t.value;
+                saveData();
+            }
+        });
+
         if (elements.addTaskBtn) {
             elements.addTaskBtn.addEventListener('click', () => {
                 plannerData.focusTasks.push({
@@ -1005,6 +1017,20 @@ document.addEventListener('DOMContentLoaded', () => {
             saveData();
             alert("GitHub settings saved.");
         });
+
+        // Manual Save Button
+        if (elements.saveDataBtn) {
+            elements.saveDataBtn.addEventListener('click', () => {
+                saveData();
+                const originalText = elements.saveDataBtn.textContent;
+                elements.saveDataBtn.textContent = "Saved!";
+                elements.saveDataBtn.classList.add('success');
+                setTimeout(() => {
+                    elements.saveDataBtn.textContent = originalText;
+                    elements.saveDataBtn.classList.remove('success');
+                }, 2000);
+            });
+        }
 
         // GitHub Sync
         if (elements.syncBtn) {
