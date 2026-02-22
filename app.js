@@ -500,9 +500,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const setGHStatus = (status, text) => {
+    const setGHStatus = (status, text, errorMsg = null) => {
         elements.syncBtn.className = `btn-text ${status}`;
         elements.syncBtn.textContent = text;
+        if (status === 'error' && errorMsg) {
+            alert(`Sync Error: ${errorMsg}`);
+        }
         if (status === 'success' || status === 'error') {
             setTimeout(() => {
                 elements.syncBtn.className = 'btn-text';
@@ -513,16 +516,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchFromGitHub = async () => {
         const { username, repo, token } = plannerData.settings.github;
-        if (!username || !repo || !token) return null;
+        if (!username || !repo || !token) return { error: "Missing configuration" };
         try {
             const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/data.json`, {
                 headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
             });
-            if (res.status === 404) return null;
+            if (res.status === 404) return { data: null, sha: null };
+            if (!res.ok) return { error: `Fetch failed (${res.status})` };
             const fileData = await res.json();
             const content = decodeURIComponent(atob(fileData.content).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
             return { data: JSON.parse(content), sha: fileData.sha };
-        } catch (e) { console.error(e); return null; }
+        } catch (e) { console.error(e); return { error: e.message }; }
+    };
+
+    const mergePlannerData = (local, remote) => {
+        const merged = { ...local };
+        for (const key in remote) {
+            if (remote[key] && typeof remote[key] === 'object' && !Array.isArray(remote[key])) {
+                merged[key] = { ...(local[key] || {}), ...remote[key] };
+            } else {
+                merged[key] = remote[key];
+            }
+        }
+        return merged;
     };
 
     const pushToGitHub = async (data, sha = null) => {
@@ -538,8 +554,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
-            return res.ok;
-        } catch (e) { console.error(e); return false; }
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                return { success: false, error: err.message || `Push failed (${res.status})` };
+            }
+            return { success: true };
+        } catch (e) { console.error(e); return { success: false, error: e.message }; }
     };
 
     const syncWithGitHub = async () => {
@@ -552,22 +572,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         setGHStatus('syncing', 'Syncing...');
-        const remote = await fetchFromGitHub();
+
+        const remoteResult = await fetchFromGitHub();
+        if (remoteResult.error) {
+            setGHStatus('error', 'Sync Failed', remoteResult.error);
+            return;
+        }
 
         let dataToPush = plannerData;
         let remoteSha = null;
 
-        if (remote) {
-            remoteSha = remote.sha;
-            plannerData = { ...plannerData, ...remote.data };
+        if (remoteResult.data) {
+            remoteSha = remoteResult.sha;
+            plannerData = mergePlannerData(plannerData, remoteResult.data);
             saveData();
             renderActiveView();
             dataToPush = plannerData;
         }
 
-        const success = await pushToGitHub(dataToPush, remoteSha);
-        if (success) setGHStatus('success', 'Synced!');
-        else setGHStatus('error', 'Sync Failed');
+        const pushResult = await pushToGitHub(dataToPush, remoteSha);
+        if (pushResult.success) {
+            setGHStatus('success', 'Synced!');
+        } else {
+            setGHStatus('error', 'Sync Failed', pushResult.error);
+        }
     };
 
     const getDateKey = (date) => {
