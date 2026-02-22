@@ -366,7 +366,7 @@ body {
     grid-template-columns: 80px 1fr 1fr;
     gap: 1.5rem;
     align-items: center;
-    padding: 0.8rem 1rem;
+    padding: 0.7rem 1rem;
     border-bottom: 1px solid #f8fafc;
     transition: background-color 0.2s;
 }
@@ -409,7 +409,7 @@ body {
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--text-primary);
-    padding: 0.6rem 0.4rem;
+    padding: 0.54rem 0.4rem;
     outline: none;
     width: 100%;
     font-size: 1.05rem;
@@ -444,13 +444,13 @@ textarea {
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     color: var(--text-primary);
-    padding: 1.2rem;
+    padding: 1.1rem;
     outline: none;
     min-height: 120px;
     resize: vertical;
     font-family: inherit;
     font-size: 1.05rem;
-    line-height: 1.7;
+    line-height: 1.5;
     transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
@@ -589,34 +589,221 @@ textarea:focus {
     box-shadow: 0 6px 16px var(--accent-glow);
 }
 
-.focus-tasks-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 2rem;
-}
-
-.focus-task-card {
+/* Focus Tasks Table Layout */
+.focus-table-container {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius);
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    transition: all 0.3s ease;
+    /* Removed overflow: hidden to allow sticky header to work relative to app-container */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
 }
 
-.focus-task-card:hover {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
-    transform: translateY(-4px);
+.focus-table-header {
+    display: grid;
+    grid-template-columns: 1fr 150px 120px 100px 150px;
+    gap: 1rem;
+    padding: 0.54rem 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    position: sticky;
+    top: -1px;
+    /* Align with app-container padding */
+    z-index: 20;
 }
 
-.task-header {
+.focus-tasks-table {
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
-    align-items: stretch;
+}
+
+.task-row {
+    display: grid;
+    grid-template-columns: 1fr 150px 120px 100px 150px;
+    gap: 1rem;
+    padding: 0.36rem 1.5rem;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.task-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.task-row.task-level {
+    background: rgba(255, 255, 255, 0.02);
+    font-weight: 600;
+}
+
+.task-row.sub-level {
+    padding-left: 3rem;
+    position: relative;
+}
+
+.task-row.sub-level::before {
+    content: '';
+    position: absolute;
+    left: 1.5rem;
+    top: 0;
+    bottom: 50%;
+    width: 2px;
+    border-left: 2px solid var(--glass-border);
+    border-bottom: 2px solid var(--glass-border);
+    width: 1rem;
+}
+
+.task-row.todo-level {
+    padding-left: 5rem;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    position: relative;
+}
+
+.task-row.todo-level::before {
+    content: '';
+    position: absolute;
+    left: 3.5rem;
+    top: 0;
+    bottom: 50%;
+    width: 2px;
+    border-left: 2px solid var(--glass-border);
+    border-bottom: 2px solid var(--glass-border);
+    width: 1rem;
+}
+
+.focus-tasks-table input[type="text"] {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    width: 100%;
+    padding: 0.4rem;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.focus-tasks-table input[type="text"]:focus {
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+}
+
+.focus-tasks-table input[type="date"] {
+    background: transparent;
+    border: none;
+    color: var(--accent-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.col-status .progress-badge {
+    background: var(--accent-glow);
+    color: var(--accent-color);
+    padding: 0.2rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.col-actions .header-btns {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.task-progress-mini {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.task-progress-bar-mini {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+}
+
+.task-row.archived {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+}
+
+/* Toggle Switch Styles */
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.slider {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    background-color: #cbd5e1;
+    transition: .4s;
+    border-radius: 20px;
+}
+
+.slider::before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--accent-color);
+}
+
+input:checked+.slider::before {
+    transform: translateX(20px);
+}
+
+/* Collapsible Sub-tasks */
+.btn-toggle-collapse {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.btn-toggle-collapse:hover {
+    background: var(--bg-color);
+    color: var(--accent-color);
+}
+
+.sub-task-item.is-collapsed {
+    padding-bottom: 0.8rem;
 }
 
 

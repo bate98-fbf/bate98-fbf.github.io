@@ -131,10 +131,26 @@
                                 <h2>중점추진업무 (Core Focus Tasks)</h2>
                                 <p class="tagline">Manage your high-level strategic priorities</p>
                             </div>
-                            <button id="add-task-btn" class="btn-primary">+ Add New Task</button>
+                            <div class="header-actions">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="hide-completed-focus-tasks">
+                                    <span class="slider round"></span>
+                                    <span class="toggle-label">Hide Completed</span>
+                                </label>
+                                <button id="add-task-btn" class="btn-primary">+ Add New Task</button>
+                            </div>
                         </header>
-                        <div id="focus-tasks-list" class="focus-tasks-grid">
-                            <!-- Tasks will be rendered here -->
+                        <div class="focus-table-container">
+                            <div class="focus-table-header">
+                                <div class="col-title">Task / Title</div>
+                                <div class="col-owner">Owner</div>
+                                <div class="col-due">Due Date</div>
+                                <div class="col-status">Status</div>
+                                <div class="col-actions">Actions</div>
+                            </div>
+                            <div id="focus-tasks-list" class="focus-tasks-table">
+                                <!-- Table rows will be rendered here -->
+                            </div>
                         </div>
                     </div>
                 </section>

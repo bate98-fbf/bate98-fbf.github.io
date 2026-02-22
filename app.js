@@ -62,7 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pastePlanBtn: document.getElementById('paste-plan-btn'),
         dayTodoList: document.getElementById('day-todo-list'),
         dayTodoInput: document.getElementById('day-todo-input'),
-        addDayTodoBtn: document.getElementById('add-day-todo-btn')
+        addDayTodoBtn: document.getElementById('add-day-todo-btn'),
+        hideCompletedFocusBtn: document.getElementById('hide-completed-focus-tasks')
     };
 
     let currentDate = new Date();
@@ -104,7 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 repo: localStorage.getItem('gh_repo') || '',
                 token: localStorage.getItem('gh_token') || ''
             },
-            holidays: {}
+            holidays: {},
+            hideCompletedFocusTasks: false
         };
         // Merge hardcoded holidays into settings
         Object.entries(HOLIDAYS.solar).forEach(([k, v]) => plannerData.settings.holidays[k] = v);
@@ -488,6 +490,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderFocusView = () => {
         elements.focusTasksList.innerHTML = '';
 
+        if (elements.hideCompletedFocusBtn) {
+            elements.hideCompletedFocusBtn.checked = !!plannerData.settings.hideCompletedFocusTasks;
+        }
+
         // Add datalist for assignees once
         let datalist = document.getElementById('assignees-list');
         if (!datalist) {
@@ -497,7 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         datalist.innerHTML = (plannerData.assignees || []).map(a => `<option value="${a}">`).join('');
 
-        const renderTaskCard = (task, isArchived = false) => {
+        const renderTaskRows = (task, isArchived = false) => {
+            const rows = [];
+            const hideCompleted = plannerData.settings.hideCompletedFocusTasks && !isArchived;
             // Calculate progress
             let totalTodos = 0;
             let completedTodos = 0;
@@ -510,89 +518,107 @@ document.addEventListener('DOMContentLoaded', () => {
             const progress = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
 
             const taskEl = document.createElement('div');
-            taskEl.className = `focus-task-card task-level ${isArchived ? 'archived' : ''}`;
-            taskEl.dataset.taskId = task.id; // Persistent ID
+            taskEl.className = `task-row task-level ${isArchived ? 'archived' : ''}`;
+            taskEl.dataset.taskId = task.id;
+
+            // Render main task content
             taskEl.innerHTML = `
-                <div class="task-progress-container">
-                    <div class="task-progress-bar" style="width: ${progress}%"></div>
-                </div>
-                <div class="task-header">
-                    <div class="header-main-row">
-                        <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${task.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                        <div class="header-btns">
-                            <span class="progress-badge">${progress}%</span>
-                            ${isArchived ? `
-                                <button class="btn-restore-task" data-task-id="${task.id}" title="Restore Task">↺</button>
-                            ` : `
-                                <button class="btn-sub-add" data-task-id="${task.id}" title="Add Sub-Task">+ Sub</button>
-                                <button class="btn-complete-task" data-task-id="${task.id}" title="Complete & Archive">✔</button>
-                            `}
-                            <button class="btn-delete-task" data-task-id="${task.id}" data-is-archived="${isArchived}" title="Delete Task">×</button>
-                        </div>
-                    </div>
-                    <div class="meta-row main-meta">
-                        <div class="meta-item">
-                            <label>📅 Due</label>
-                            <input type="date" class="meta-input" value="${task.dueDate || ''}" data-task-id="${task.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                        </div>
-                        <div class="meta-item">
-                            <label>👤 Owner</label>
-                            <input type="text" class="meta-input" value="${task.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                <div class="col-title">
+                    <div style="display:flex; align-items:center;">
+                        <button class="btn-toggle-task-collapse" data-task-id="${task.id}" title="${task.collapsed ? 'Expand' : 'Collapse'}">
+                            ${task.collapsed ? '▶' : '▼'}
+                        </button>
+                        <div style="flex:1;">
+                            <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${task.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            <div class="task-progress-mini"><div class="task-progress-bar-mini" style="width: ${progress}%"></div></div>
                         </div>
                     </div>
                 </div>
-                <div class="sub-tasks-container">
-                    ${(task.subTasks || []).map((sub) => {
-                if (!sub.todos) sub.todos = [];
-                return `
-                        <div class="sub-task-item">
-                            <div class="sub-header-container">
-                                <div class="sub-header">
-                                    <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                    ${!isArchived ? `
-                                    <div class="header-btns">
-                                        <button class="btn-todo-add" data-task-id="${task.id}" data-sub-id="${sub.id}">+ Todo</button>
-                                        <button class="btn-delete-sub" data-task-id="${task.id}" data-sub-id="${sub.id}">×</button>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                                <div class="meta-row sub-meta">
-                                    <div class="meta-item">
-                                        <label>📅</label>
-                                        <input type="date" class="meta-input" value="${sub.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                    </div>
-                                    <div class="meta-item">
-                                        <label>👤</label>
-                                        <input type="text" class="meta-input" value="${sub.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="todos-container">
-                                ${sub.todos.map((todo) => `
-                                    <div class="todo-item">
-                                        <div class="todo-main-row">
-                                            <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            ${!isArchived ? `<button class="btn-delete-todo" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}">×</button>` : ''}
-                                        </div>
-                                        <div class="meta-row todo-meta">
-                                            <div class="meta-item">
-                                                <label>📅</label>
-                                                <input type="date" class="meta-input" value="${todo.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            </div>
-                                            <div class="meta-item">
-                                                <label>👤</label>
-                                                <input type="text" class="meta-input" value="${todo.owner || ''}" placeholder="Owner" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `}).join('')}
+                <div class="col-owner">
+                    <input type="text" class="meta-input" value="${task.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                </div>
+                <div class="col-due">
+                    <input type="date" class="meta-input" value="${task.dueDate || ''}" data-task-id="${task.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                </div>
+                <div class="col-status"><span class="progress-badge">${progress}%</span></div>
+                <div class="col-actions">
+                    <div class="header-btns">
+                        ${isArchived ? `
+                            <button class="btn-restore-task" data-task-id="${task.id}" title="Restore Task">↺</button>
+                        ` : `
+                            <button class="btn-sub-add" data-task-id="${task.id}" title="Add Sub-Task">+ Sub</button>
+                            <button class="btn-complete-task" data-task-id="${task.id}" title="Complete & Archive">✔</button>
+                        `}
+                        <button class="btn-delete-task" data-task-id="${task.id}" data-is-archived="${isArchived}" title="Delete Task">×</button>
+                    </div>
                 </div>
             `;
-            return taskEl;
+            rows.push(taskEl);
+
+            if (!task.collapsed) {
+                (task.subTasks || []).forEach(sub => {
+                    if (!sub.todos) sub.todos = [];
+                    const allSubTodosDone = sub.todos.length > 0 && sub.todos.every(t => t.done);
+                    if (hideCompleted && allSubTodosDone) return;
+
+                    const subEl = document.createElement('div');
+                    subEl.className = `task-row sub-level ${isArchived ? 'archived' : ''}`;
+                    subEl.innerHTML = `
+                        <div class="col-title">
+                            <div style="display:flex; align-items:center;">
+                                <button class="btn-toggle-collapse" data-task-id="${task.id}" data-sub-id="${sub.id}" title="${sub.collapsed ? 'Expand' : 'Collapse'}">
+                                    ${sub.collapsed ? '▶' : '▼'}
+                                </button>
+                                <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            </div>
+                        </div>
+                        <div class="col-owner">
+                            <input type="text" class="meta-input" value="${sub.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        </div>
+                        <div class="col-due">
+                            <input type="date" class="meta-input" value="${sub.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        </div>
+                        <div class="col-status"></div>
+                        <div class="col-actions">
+                            ${!isArchived ? `
+                            <div class="header-btns">
+                                <button class="btn-todo-add" data-task-id="${task.id}" data-sub-id="${sub.id}">+ Todo</button>
+                                <button class="btn-delete-sub" data-task-id="${task.id}" data-sub-id="${sub.id}">×</button>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    rows.push(subEl);
+
+                    if (!sub.collapsed) {
+                        sub.todos.forEach(todo => {
+                            if (hideCompleted && todo.done) return;
+                            const todoEl = document.createElement('div');
+                            todoEl.className = `task-row todo-level ${isArchived ? 'archived' : ''}`;
+                            todoEl.innerHTML = `
+                            <div class="col-title">
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                </div>
+                            </div>
+                            <div class="col-owner">
+                                <input type="text" class="meta-input" value="${todo.owner || ''}" placeholder="Owner" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            </div>
+                            <div class="col-due">
+                                <input type="date" class="meta-input" value="${todo.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            </div>
+                            <div class="col-status"></div>
+                            <div class="col-actions">
+                                ${!isArchived ? `<div class="header-btns"><button class="btn-delete-todo" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}">×</button></div>` : ''}
+                            </div>
+                        `;
+                            rows.push(todoEl);
+                        });
+                    }
+                });
+            }
+            return rows;
         };
 
         if (plannerData.focusTasks.length === 0 && plannerData.archivedTasks.length === 0) {
@@ -602,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render Active Tasks
         plannerData.focusTasks.forEach((task) => {
-            elements.focusTasksList.appendChild(renderTaskCard(task, false));
+            renderTaskRows(task, false).forEach(row => elements.focusTasksList.appendChild(row));
         });
 
         // Render Archive Section if any
@@ -613,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.focusTasksList.appendChild(archiveHeader);
 
             plannerData.archivedTasks.forEach((task) => {
-                elements.focusTasksList.appendChild(renderTaskCard(task, true));
+                renderTaskRows(task, true).forEach(row => elements.focusTasksList.appendChild(row));
             });
         }
     };
@@ -982,6 +1008,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const t = e.target;
             const { taskId, subId, todoId, isArchived } = t.dataset;
             const isArchivedBool = isArchived === 'true';
+
+            if (t.classList.contains('btn-toggle-task-collapse')) {
+                const targetList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
+                const task = targetList.find(i => i.id === taskId);
+                task.collapsed = !task.collapsed;
+                saveData();
+                renderFocusView();
+                return;
+            }
+
+            if (t.classList.contains('btn-toggle-collapse')) {
+                const targetList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
+                const task = targetList.find(i => i.id === taskId);
+                const sub = task.subTasks.find(s => s.id === subId);
+                sub.collapsed = !sub.collapsed;
+                saveData();
+                renderFocusView();
+                return;
+            }
+
             const taskList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
 
             if (t.classList.contains('btn-delete-task')) {
@@ -1056,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderActiveView();
 
                 setTimeout(() => {
-                    const targetCard = document.querySelector(`.focus-task-card[data-task-id="${jumpId}"]`);
+                    const targetCard = document.querySelector(`.task-row.task-level[data-task-id="${jumpId}"]`);
                     if (targetCard) {
                         targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         targetCard.classList.add('jump-highlight');
@@ -1133,6 +1179,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         elements.importBtn.addEventListener('click', () => elements.importInput.click());
+
+        if (elements.hideCompletedFocusBtn) {
+            elements.hideCompletedFocusBtn.addEventListener('change', (e) => {
+                plannerData.settings.hideCompletedFocusTasks = e.target.checked;
+                saveData();
+                renderFocusView();
+            });
+        }
 
         // Day Editor Modal
         elements.closeDayModal.addEventListener('click', () => {
