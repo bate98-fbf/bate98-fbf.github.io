@@ -100,13 +100,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!plannerData.archivedTasks) plannerData.archivedTasks = [];
     if (!plannerData.assignees) plannerData.assignees = [];
 
-    // Data Migration for Focus Tasks (convert legacy strings to objects)
+    // Data Migration for Focus Tasks (convert legacy strings to objects + add UUIDs)
+    const ensureIds = (task) => {
+        if (!task.id) task.id = crypto.randomUUID();
+        if (task.subTasks) {
+            task.subTasks.forEach(sub => {
+                if (!sub.id) sub.id = crypto.randomUUID();
+                if (sub.todos) sub.todos.forEach(todo => {
+                    if (!todo.id) todo.id = crypto.randomUUID();
+                });
+            });
+        }
+        return task;
+    };
+
     if (plannerData.focusTasks) {
         plannerData.focusTasks = plannerData.focusTasks.map(task => {
-            if (typeof task === 'string') return { title: task, subTasks: [] };
+            if (typeof task === 'string') task = { title: task, subTasks: [] };
             if (!task.subTasks) task.subTasks = [];
-            return task;
+            return ensureIds(task);
         });
+    }
+    if (plannerData.archivedTasks) {
+        plannerData.archivedTasks = plannerData.archivedTasks.map(task => ensureIds(task));
     }
 
     const isHoliday = (date) => {
@@ -381,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         datalist.innerHTML = (plannerData.assignees || []).map(a => `<option value="${a}">`).join('');
 
-        const renderTaskCard = (task, taskIndex, isArchived = false) => {
+        const renderTaskCard = (task, isArchived = false) => {
             // Calculate progress
             let totalTodos = 0;
             let completedTodos = 0;
@@ -395,77 +411,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const taskEl = document.createElement('div');
             taskEl.className = `focus-task-card task-level ${isArchived ? 'archived' : ''}`;
+            taskEl.dataset.taskId = task.id; // Persistent ID
             taskEl.innerHTML = `
                 <div class="task-progress-container">
                     <div class="task-progress-bar" style="width: ${progress}%"></div>
                 </div>
                 <div class="task-header">
                     <div class="header-main-row">
-                        <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${taskIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${task.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                         <div class="header-btns">
                             <span class="progress-badge">${progress}%</span>
                             ${isArchived ? `
-                                <button class="btn-restore-task" data-task-id="${taskIndex}" title="Restore Task">↺</button>
+                                <button class="btn-restore-task" data-task-id="${task.id}" title="Restore Task">↺</button>
                             ` : `
-                                <button class="btn-sub-add" data-task-id="${taskIndex}" title="Add Sub-Task">+ Sub</button>
-                                <button class="btn-complete-task" data-task-id="${taskIndex}" title="Complete & Archive">✔</button>
+                                <button class="btn-sub-add" data-task-id="${task.id}" title="Add Sub-Task">+ Sub</button>
+                                <button class="btn-complete-task" data-task-id="${task.id}" title="Complete & Archive">✔</button>
                             `}
-                            <button class="btn-delete-task" data-task-id="${taskIndex}" data-is-archived="${isArchived}" title="Delete Task">×</button>
+                            <button class="btn-delete-task" data-task-id="${task.id}" data-is-archived="${isArchived}" title="Delete Task">×</button>
                         </div>
                     </div>
                     <div class="meta-row main-meta">
                         <div class="meta-item">
                             <label>📅 Due</label>
-                            <input type="date" class="meta-input" value="${task.dueDate || ''}" data-task-id="${taskIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            <input type="date" class="meta-input" value="${task.dueDate || ''}" data-task-id="${task.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                         </div>
                         <div class="meta-item">
                             <label>👤 Owner</label>
-                            <input type="text" class="meta-input" value="${task.owner || ''}" placeholder="Assignee" data-task-id="${taskIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                            <input type="text" class="meta-input" value="${task.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                         </div>
                     </div>
                 </div>
                 <div class="sub-tasks-container">
-                    ${(task.subTasks || []).map((sub, subIndex) => {
+                    ${(task.subTasks || []).map((sub) => {
                 if (!sub.todos) sub.todos = [];
                 return `
                         <div class="sub-task-item">
                             <div class="sub-header-container">
                                 <div class="sub-header">
-                                    <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                                     ${!isArchived ? `
                                     <div class="header-btns">
-                                        <button class="btn-todo-add" data-task-id="${taskIndex}" data-sub-id="${subIndex}">+ Todo</button>
-                                        <button class="btn-delete-sub" data-task-id="${taskIndex}" data-sub-id="${subIndex}">×</button>
+                                        <button class="btn-todo-add" data-task-id="${task.id}" data-sub-id="${sub.id}">+ Todo</button>
+                                        <button class="btn-delete-sub" data-task-id="${task.id}" data-sub-id="${sub.id}">×</button>
                                     </div>
                                     ` : ''}
                                 </div>
                                 <div class="meta-row sub-meta">
                                     <div class="meta-item">
                                         <label>📅</label>
-                                        <input type="date" class="meta-input" value="${sub.dueDate || ''}" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                        <input type="date" class="meta-input" value="${sub.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                                     </div>
                                     <div class="meta-item">
                                         <label>👤</label>
-                                        <input type="text" class="meta-input" value="${sub.owner || ''}" placeholder="Assignee" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                        <input type="text" class="meta-input" value="${sub.owner || ''}" placeholder="Assignee" data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                                     </div>
                                 </div>
                             </div>
                             <div class="todos-container">
-                                ${sub.todos.map((todo, todoIndex) => `
+                                ${sub.todos.map((todo) => `
                                     <div class="todo-item">
                                         <div class="todo-main-row">
-                                            <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                            ${!isArchived ? `<button class="btn-delete-todo" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}">×</button>` : ''}
+                                            <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                            ${!isArchived ? `<button class="btn-delete-todo" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}">×</button>` : ''}
                                         </div>
                                         <div class="meta-row todo-meta">
                                             <div class="meta-item">
                                                 <label>📅</label>
-                                                <input type="date" class="meta-input" value="${todo.dueDate || ''}" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                                <input type="date" class="meta-input" value="${todo.dueDate || ''}" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="dueDate" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                                             </div>
                                             <div class="meta-item">
                                                 <label>👤</label>
-                                                <input type="text" class="meta-input" value="${todo.owner || ''}" placeholder="Owner" data-task-id="${taskIndex}" data-sub-id="${subIndex}" data-todo-id="${todoIndex}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                                <input type="text" class="meta-input" value="${todo.owner || ''}" placeholder="Owner" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="owner" list="assignees-list" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
                                             </div>
                                         </div>
                                     </div>
@@ -484,8 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Render Active Tasks
-        plannerData.focusTasks.forEach((task, taskIndex) => {
-            elements.focusTasksList.appendChild(renderTaskCard(task, taskIndex, false));
+        plannerData.focusTasks.forEach((task) => {
+            elements.focusTasksList.appendChild(renderTaskCard(task, false));
         });
 
         // Render Archive Section if any
@@ -495,8 +512,8 @@ document.addEventListener('DOMContentLoaded', () => {
             archiveHeader.innerHTML = `<h3>Archive (Completed Tasks)</h3><div class="archive-divider"></div>`;
             elements.focusTasksList.appendChild(archiveHeader);
 
-            plannerData.archivedTasks.forEach((task, taskIndex) => {
-                elements.focusTasksList.appendChild(renderTaskCard(task, taskIndex, true));
+            plannerData.archivedTasks.forEach((task) => {
+                elements.focusTasksList.appendChild(renderTaskCard(task, true));
             });
         }
     };
@@ -515,6 +532,59 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const deepMerge = (target, source) => {
+        const isObject = (item) => item && typeof item === 'object' && !Array.isArray(item);
+        const merged = { ...target };
+
+        if (isObject(target) && isObject(source)) {
+            Object.keys(source).forEach(key => {
+                if (isObject(source[key])) {
+                    if (!(key in target)) Object.assign(merged, { [key]: source[key] });
+                    else merged[key] = deepMerge(target[key], source[key]);
+                } else if (Array.isArray(source[key])) {
+                    // Smart Array Merge for Tasks (by ID)
+                    if (key === 'focusTasks' || key === 'archivedTasks' || key === 'assignees') {
+                        const targetArr = target[key] || [];
+                        const sourceArr = source[key] || [];
+                        if (key === 'assignees') {
+                            merged[key] = [...new Set([...targetArr, ...sourceArr])];
+                        } else {
+                            // Merge task objects by UUID
+                            const map = new Map();
+                            targetArr.forEach(item => map.set(item.id, item));
+                            sourceArr.forEach(item => {
+                                if (map.has(item.id)) {
+                                    map.set(item.id, deepMerge(map.get(item.id), item));
+                                } else {
+                                    map.set(item.id, item);
+                                }
+                            });
+                            merged[key] = Array.from(map.values());
+                        }
+                    } else {
+                        merged[key] = source[key];
+                    }
+                } else {
+                    merged[key] = source[key];
+                }
+            });
+        }
+        return merged;
+    };
+
+    const mergePlannerData = (local, remote) => {
+        // Create a deep copy of local to protect settings
+        const localGitHub = { ...((local.settings && local.settings.github) || {}) };
+
+        // Use deepMerge to combine data
+        const merged = deepMerge(local, remote);
+
+        // Restore local GitHub settings
+        if (merged.settings) merged.settings.github = localGitHub;
+
+        return merged;
+    };
+
     const fetchFromGitHub = async () => {
         const { username, repo, token } = plannerData.settings.github;
         if (!username || !repo || !token) return { error: "Missing configuration" };
@@ -528,27 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const content = decodeURIComponent(atob(fileData.content).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
             return { data: JSON.parse(content), sha: fileData.sha };
         } catch (e) { console.error(e); return { error: e.message }; }
-    };
-
-    const mergePlannerData = (local, remote) => {
-        // Create a deep copy of local to protect settings
-        const merged = JSON.parse(JSON.stringify(local));
-
-        // Preserve local GitHub settings entirely
-        const localGitHub = { ...((local.settings && local.settings.github) || {}) };
-
-        for (const key in remote) {
-            if (key === 'settings') {
-                // Merge other settings but keep local github
-                merged.settings = { ...(local.settings || {}), ...remote.settings };
-                merged.settings.github = localGitHub;
-            } else if (remote[key] && typeof remote[key] === 'object' && !Array.isArray(remote[key])) {
-                merged[key] = { ...(local[key] || {}), ...remote[key] };
-            } else {
-                merged[key] = remote[key];
-            }
-        }
-        return merged;
     };
 
     const pushToGitHub = async (data, sha = null) => {
@@ -631,20 +680,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const entriesByDate = {};
 
         // Collect all active focus task items with due dates
-        plannerData.focusTasks.forEach((task, idx) => {
+        plannerData.focusTasks.forEach((task) => {
             if (task.dueDate) {
                 if (!entriesByDate[task.dueDate]) entriesByDate[task.dueDate] = [];
-                entriesByDate[task.dueDate].push({ id: idx, type: 'task', title: task.title || 'Untitled' });
+                entriesByDate[task.dueDate].push({ id: task.id, type: 'task', title: task.title || 'Untitled' });
             }
             (task.subTasks || []).forEach(sub => {
                 if (sub.dueDate) {
                     if (!entriesByDate[sub.dueDate]) entriesByDate[sub.dueDate] = [];
-                    entriesByDate[sub.dueDate].push({ id: idx, type: 'sub', title: sub.title || 'Untitled' });
+                    entriesByDate[sub.dueDate].push({ id: task.id, type: 'sub', title: sub.title || 'Untitled' });
                 }
                 (sub.todos || []).forEach(todo => {
                     if (todo.dueDate) {
                         if (!entriesByDate[todo.dueDate]) entriesByDate[todo.dueDate] = [];
-                        entriesByDate[todo.dueDate].push({ id: idx, type: 'todo', title: todo.title || 'Untitled' });
+                        entriesByDate[todo.dueDate].push({ id: task.id, type: 'todo', title: todo.title || 'Untitled' });
                     }
                 });
             });
@@ -725,13 +774,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { taskId, subId, todoId, field, isArchived } = t.dataset;
                 if (taskId !== undefined) {
                     const taskList = isArchived === 'true' ? plannerData.archivedTasks : plannerData.focusTasks;
-                    const task = taskList[taskId];
+                    const task = taskList.find(i => i.id === taskId);
+                    if (!task) return;
+
                     if (todoId !== undefined) {
-                        const todo = task.subTasks[subId].todos[todoId];
+                        const sub = task.subTasks.find(s => s.id === subId);
+                        if (!sub) return;
+                        const todo = sub.todos.find(td => td.id === todoId);
+                        if (!todo) return;
                         if (t.type === 'checkbox') todo.done = t.checked;
                         else todo[field] = t.value;
                     } else if (subId !== undefined) {
-                        task.subTasks[subId][field] = t.value;
+                        const sub = task.subTasks.find(s => s.id === subId);
+                        if (!sub) return;
+                        sub[field] = t.value;
                     } else {
                         task[field] = t.value;
                     }
@@ -768,6 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.addTaskBtn) {
             elements.addTaskBtn.addEventListener('click', () => {
                 plannerData.focusTasks.push({
+                    id: crypto.randomUUID(),
                     title: '',
                     subTasks: [],
                     created: getDateKey(new Date())
@@ -783,44 +840,72 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => {
             const t = e.target;
             const { taskId, subId, todoId, isArchived } = t.dataset;
-            const taskList = isArchived === 'true' ? plannerData.archivedTasks : plannerData.focusTasks;
+            const isArchivedBool = isArchived === 'true';
+            const taskList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
 
             if (t.classList.contains('btn-delete-task')) {
-                if (confirm('Delete this task permanently?')) {
-                    taskList.splice(taskId, 1);
+                const idx = taskList.findIndex(i => i.id === taskId);
+                if (idx !== -1 && confirm('Delete this task permanently?')) {
+                    taskList.splice(idx, 1);
                     syncFocusTasksToCalendar();
                     saveData(); renderFocusView();
                 }
             } else if (t.classList.contains('btn-complete-task')) {
-                const [task] = plannerData.focusTasks.splice(taskId, 1);
-                plannerData.archivedTasks.unshift(task);
-                syncFocusTasksToCalendar();
-                saveData(); renderFocusView();
+                const idx = plannerData.focusTasks.findIndex(i => i.id === taskId);
+                if (idx !== -1) {
+                    const [task] = plannerData.focusTasks.splice(idx, 1);
+                    plannerData.archivedTasks.unshift(task);
+                    syncFocusTasksToCalendar();
+                    saveData(); renderFocusView();
+                }
             } else if (t.classList.contains('btn-restore-task')) {
-                const [task] = plannerData.archivedTasks.splice(taskId, 1);
-                plannerData.focusTasks.push(task);
-                syncFocusTasksToCalendar();
-                saveData(); renderFocusView();
+                const idx = plannerData.archivedTasks.findIndex(i => i.id === taskId);
+                if (idx !== -1) {
+                    const [task] = plannerData.archivedTasks.splice(idx, 1);
+                    plannerData.focusTasks.push(task);
+                    syncFocusTasksToCalendar();
+                    saveData(); renderFocusView();
+                }
             } else if (t.classList.contains('btn-sub-add')) {
-                if (!plannerData.focusTasks[taskId].subTasks) plannerData.focusTasks[taskId].subTasks = [];
-                plannerData.focusTasks[taskId].subTasks.push({ title: '', todos: [] });
-                saveData(); renderFocusView();
-                const inputs = elements.focusTasksList.querySelectorAll(`.sub-title-input[data-task-id="${taskId}"]`);
-                inputs[inputs.length - 1].focus();
+                const task = plannerData.focusTasks.find(i => i.id === taskId);
+                if (task) {
+                    if (!task.subTasks) task.subTasks = [];
+                    task.subTasks.push({ id: crypto.randomUUID(), title: '', todos: [] });
+                    saveData(); renderFocusView();
+                }
             } else if (t.classList.contains('btn-delete-sub')) {
-                plannerData.focusTasks[taskId].subTasks.splice(subId, 1);
-                syncFocusTasksToCalendar();
-                saveData(); renderFocusView();
+                const task = plannerData.focusTasks.find(i => i.id === taskId);
+                if (task && task.subTasks) {
+                    const sIdx = task.subTasks.findIndex(s => s.id === subId);
+                    if (sIdx !== -1) {
+                        task.subTasks.splice(sIdx, 1);
+                        syncFocusTasksToCalendar();
+                        saveData(); renderFocusView();
+                    }
+                }
             } else if (t.classList.contains('btn-todo-add')) {
-                if (!plannerData.focusTasks[taskId].subTasks[subId].todos) plannerData.focusTasks[taskId].subTasks[subId].todos = [];
-                plannerData.focusTasks[taskId].subTasks[subId].todos.push({ title: '', done: false });
-                saveData(); renderFocusView();
-                const inputs = elements.focusTasksList.querySelectorAll(`.todo-title-input[data-task-id="${taskId}"][data-sub-id="${subId}"]`);
-                inputs[inputs.length - 1].focus();
+                const task = plannerData.focusTasks.find(i => i.id === taskId);
+                if (task && task.subTasks) {
+                    const sub = task.subTasks.find(s => s.id === subId);
+                    if (sub) {
+                        if (!sub.todos) sub.todos = [];
+                        sub.todos.push({ id: crypto.randomUUID(), title: '', done: false });
+                        saveData(); renderFocusView();
+                    }
+                }
             } else if (t.classList.contains('btn-delete-todo')) {
-                plannerData.focusTasks[taskId].subTasks[subId].todos.splice(todoId, 1);
-                syncFocusTasksToCalendar();
-                saveData(); renderFocusView();
+                const task = plannerData.focusTasks.find(i => i.id === taskId);
+                if (task && task.subTasks) {
+                    const sub = task.subTasks.find(s => s.id === subId);
+                    if (sub && sub.todos) {
+                        const tdIdx = sub.todos.findIndex(td => td.id === todoId);
+                        if (tdIdx !== -1) {
+                            sub.todos.splice(tdIdx, 1);
+                            syncFocusTasksToCalendar();
+                            saveData(); renderFocusView();
+                        }
+                    }
+                }
             } else if (t.closest('.sync-item')) {
                 const jumpId = t.closest('.sync-item').dataset.jumpTaskId;
                 currentView = 'focus';
