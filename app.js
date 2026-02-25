@@ -7,9 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn: document.getElementById('prev-btn'),
         nextBtn: document.getElementById('next-btn'),
         todayBtn: document.getElementById('today-btn'),
-        dayPrevBtn: document.getElementById('day-prev-btn'),
-        dayNextBtn: document.getElementById('day-next-btn'),
-        dayTodayBtn: document.getElementById('day-today-btn'),
         saveDataBtn: document.getElementById('save-data-btn'),
         exportBtn: document.getElementById('export-btn'),
         importBtn: document.getElementById('import-btn'),
@@ -21,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
         holidayManagerContainer: document.getElementById('holiday-manager-container'),
         setExportFolderBtn: document.getElementById('set-export-folder-btn'),
         exportFolderDisplay: document.getElementById('export-folder-display'),
-        timelineContainer: document.getElementById('timeline-container'),
         yearView: document.getElementById('year-view'),
         monthView: document.getElementById('month-view'),
         weekView: document.getElementById('week-view'),
@@ -31,11 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         addTaskBtn: document.getElementById('add-task-btn'),
         syncBtn: document.getElementById('github-sync-btn'),
         settingsView: document.getElementById('settings-view'),
-        ghUsernameInput: document.getElementById('settings-gh-username'),
-        ghRepoInput: document.getElementById('settings-gh-repo'),
-        ghTokenInput: document.getElementById('settings-gh-token'),
-        saveGhSettingsBtn: document.getElementById('save-settings-gh'),
-        holidayManagerContainer: document.getElementById('holiday-manager-container'),
         addHolidayBtn: document.getElementById('add-holiday-btn'),
         headerDateDisplay: document.getElementById('current-date-display'),
         headerDateJump: document.getElementById('header-date-jump'),
@@ -60,16 +51,47 @@ document.addEventListener('DOMContentLoaded', () => {
         closeMonthModal: document.getElementById('close-month-modal'),
         copyPlanBtn: document.getElementById('copy-plan-btn'),
         pastePlanBtn: document.getElementById('paste-plan-btn'),
-        dayTodoList: document.getElementById('day-todo-list'),
-        dayTodoInput: document.getElementById('day-todo-input'),
-        addDayTodoBtn: document.getElementById('add-day-todo-btn'),
-        hideCompletedFocusBtn: document.getElementById('hide-completed-focus-tasks')
+        hideCompletedFocusBtn: document.getElementById('hide-completed-focus-tasks'),
+        moveItemDatePicker: document.getElementById('move-item-date-picker'),
+        // Memo Elements
+        memoView: document.getElementById('memo-view'),
+        addMemoBtn: document.getElementById('add-memo-btn'),
+        memoSearch: document.getElementById('memo-search'),
+        memoFilterCategory: document.getElementById('memo-filter-category'),
+        memoList: document.getElementById('memo-list'),
+        memoEditorModal: document.getElementById('memo-editor-modal'),
+        memoModalTitle: document.getElementById('memo-modal-title'),
+        memoTitleInput: document.getElementById('memo-title-input'),
+        memoCategoryInput: document.getElementById('memo-category-input'),
+        entryEditorModal: document.getElementById('entry-editor-modal'),
+        entryModalTitle: document.getElementById('entry-modal-title'),
+        entryContentInput: document.getElementById('entry-content-input'),
+        saveEntryBtn: document.getElementById('save-entry-btn'),
+        closeEntryModal: document.getElementById('close-entry-modal'),
+        saveMemoBtn: document.getElementById('save-memo-btn'),
+        closeMemoModalBtn: document.getElementById('close-memo-modal'),
+        // Day View Progress
+        dayProgressBar: document.getElementById('day-progress-bar'),
+        dayProgressPercentage: document.getElementById('day-progress-percentage'),
+        dayTaskCounts: document.getElementById('day-task-counts'),
+        mainDayTodoInput: document.getElementById('main-day-todo-input'),
+        addMainDayTodoBtn: document.getElementById('add-main-day-todo-btn'),
+        unifiedTaskList: document.getElementById('unified-task-list'),
+        taskMemoModal: document.getElementById('task-memo-modal'),
+        taskMemoTitle: document.getElementById('task-memo-modal-title'),
+        taskMemoInput: document.getElementById('task-memo-input'),
+        saveTaskMemoBtn: document.getElementById('save-task-memo-btn'),
+        closeTaskMemoModal: document.getElementById('close-task-memo-modal')
     };
 
     let currentDate = new Date();
     let currentView = 'day';
     let selectedDateKey = '';
     let selectedMonthKey = '';
+    let moveSourceDate = '';
+    let moveSourceIdx = -1;
+    let draggedItem = null;
+    let currentMemoTarget = null; // { type: 'focus-sub'|'weekly-todo', idOrText: string, date: string }
 
     // Korean Holidays (2026-2040) - Verified Solar, Lunar, and Substitute Holidays
     const HOLIDAYS = {
@@ -106,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 token: localStorage.getItem('gh_token') || ''
             },
             holidays: {},
+            memoCategories: ['일반', '프로젝트', '미팅', '기술', '기타'],
             hideCompletedFocusTasks: false
         };
         // Merge hardcoded holidays into settings
@@ -142,6 +165,32 @@ document.addEventListener('DOMContentLoaded', () => {
         plannerData.archivedTasks = plannerData.archivedTasks.map(task => ensureIds(task));
     }
 
+    // Memo Migration (from single 'content' to 'entries' array)
+    if (plannerData.memos) {
+        plannerData.memos = plannerData.memos.map(memo => {
+            if (memo.content !== undefined && !memo.entries) {
+                // Determine if there was a timestamp in the old content
+                let text = memo.content;
+                let timestamp = `[${memo.date} 00:00:00]`; // Fallback
+                const tsMatch = text.match(/<span class="memo-timestamp">(.*?)<\/span>/);
+                if (tsMatch) {
+                    timestamp = tsMatch[1];
+                    text = text.replace(tsMatch[0], '').trim();
+                }
+                memo.entries = [{
+                    id: crypto.randomUUID(),
+                    text: text,
+                    timestamp: timestamp
+                }];
+                delete memo.content;
+            }
+            if (!memo.entries) memo.entries = [];
+            return memo;
+        });
+    } else {
+        plannerData.memos = [];
+    }
+
     const isHoliday = (date) => {
         const dateKey = getDateKey(date);
         const mdKey = dateKey.substring(5); // MM-DD
@@ -157,9 +206,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSaturday = (date) => date.getDay() === 6;
 
     const init = () => {
-        setupEventListeners();
-        syncFocusTasksToCalendar();
-        renderActiveView();
+        try {
+            setupEventListeners();
+            syncFocusTasksToCalendar();
+            updateNetworkStatus();
+            renderActiveView();
+        } catch (e) {
+            console.error("Initialization error:", e);
+            renderActiveView(); // Try to render even if some init steps fail
+        }
+    };
+
+    const updateNetworkStatus = () => {
+        /* Network status logic removed */
+    };
+
+    const parseMarkdownList = (text) => {
+        if (!text) return [];
+        const lines = text.split('\n');
+        return lines.map(line => {
+            const match = line.match(/^(\s*)-\s*\[([ xX-])\]\s*(.*)$/);
+            if (match) {
+                const char = match[2].toLowerCase();
+                return {
+                    done: char === 'x',
+                    progress: char === '-',
+                    text: match[3].trim()
+                };
+            }
+            return { done: false, progress: false, text: line.trim() };
+        }).filter(item => item.text.length > 0);
+    };
+
+    const serializeMarkdownList = (items) => {
+        return items.map(item => {
+            let char = ' ';
+            if (item.done) char = 'x';
+            else if (item.progress) char = '-';
+            return `- [${char}] ${item.text}`;
+        }).join('\n');
     };
 
     const saveData = () => localStorage.setItem('antigravity_planner_data', JSON.stringify(plannerData));
@@ -219,7 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle visibility of date pager
         const isFocusView = currentView === 'focus';
         const isSettingsView = currentView === 'settings';
-        const hidePager = isFocusView || isSettingsView;
+        const isMemoView = currentView === 'memo';
+        const hidePager = isFocusView || isSettingsView || isMemoView;
         elements.prevBtn.style.visibility = hidePager ? 'hidden' : 'visible';
         elements.nextBtn.style.visibility = hidePager ? 'hidden' : 'visible';
         elements.todayBtn.style.visibility = hidePager ? 'hidden' : 'visible';
@@ -230,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (currentView === 'year') renderYearView();
         else if (currentView === 'focus') renderFocusView();
         else if (currentView === 'settings') renderSettingsView();
+        else if (currentView === 'memo') renderMemoView();
     };
 
     const parseCellContent = (dateKey) => {
@@ -249,17 +336,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateHeader = () => {
-        const options = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' };
-        let displayStr = currentDate.toLocaleDateString('ko-KR', options);
-        if (currentView === 'month') displayStr = currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
-        else if (currentView === 'year') displayStr = currentDate.getFullYear();
+        let displayStr = "";
+        if (currentView === 'month') {
+            displayStr = currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+        } else if (currentView === 'year') {
+            displayStr = currentDate.getFullYear();
+        } else {
+            const datePart = currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            const dayPart = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+            displayStr = `${datePart} ${dayPart}`;
+        }
         elements.dateDisplay.textContent = displayStr;
+
+        // Centralized nav active class management
+        elements.navLinks.forEach(l => l.classList.toggle('active', l.dataset.view === currentView));
+
         const viewLabels = {
             'year': 'Long-term Vision & Goals',
             'month': 'Monthly Objectives & Key Events',
             'week': 'Weekly Schedule & Priorities',
             'day': 'Daily Focus & Detailed Report',
-            'focus': 'Strategic Task Management',
+            'focus': '중점 추진 사항 (Core Focus)',
+            'memo': 'Professional Work Memo & Knowledge Base',
             'settings': 'Configuration & Sync Settings'
         };
         elements.viewIndicator.textContent = viewLabels[currentView] || `${currentView.charAt(0).toUpperCase() + currentView.slice(1)} View`;
@@ -267,61 +365,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderDayView = () => {
         const dateKey = getDateKey(currentDate);
-        if (!plannerData.day[dateKey]) plannerData.day[dateKey] = { activities: {}, focus: {}, goals: '', reflectionGood: '', reflectionBetter: '', todos: [] };
+        if (!plannerData.day[dateKey]) plannerData.day[dateKey] = { activities: {}, focus: {}, goals: '', reflectionGood: '', reflectionBetter: '' };
         const dayData = plannerData.day[dateKey];
         if (!dayData.activities) dayData.activities = {};
         if (!dayData.focus) dayData.focus = {};
-        if (!dayData.todos) dayData.todos = [];
 
-        elements.timelineContainer.innerHTML = `
-            <div class="timeline-row timeline-header">
-                <div class="time-label">Time</div>
-                <div class="column-header">PLAN</div>
-                <div class="column-header">DO</div>
-            </div>
-        `;
-
-        // Loop from 04:00 to 02:00 (next day) in 30-minute steps
-        for (let h = 4; h <= 26; h++) {
-            [0, 30].forEach(m => {
-                if (h === 26 && m > 0) return; // Stop at 02:00
-                const hDisplay = (h % 24).toString().padStart(2, '0');
-                const mDisplay = m.toString().padStart(2, '0');
-                const timeKey = `${hDisplay}:${mDisplay}`;
-                const labelDisplay = m === 0 ? timeKey : `:${mDisplay}`;
-                const hourData = dayData.activities[timeKey] || { plan: '', do: '' };
-
-                const row = document.createElement('div');
-                row.className = 'timeline-row';
-                row.innerHTML = `
-                    <div class="time-label">${labelDisplay}</div>
-                    <input type="text" class="activity-input" data-time="${timeKey}" data-type="plan" placeholder="PLAN" value="${hourData.plan || ''}">
-                    <input type="text" class="activity-input" data-time="${timeKey}" data-type="do" placeholder="DO" value="${hourData.do || ''}">
-                `;
-                elements.timelineContainer.appendChild(row);
-            });
-        }
+        // Set inputs in sidebar
+        document.getElementById('daily-goals').value = dayData.goals || '';
+        document.getElementById('reflection-good').value = dayData.reflectionGood || '';
         document.getElementById('reflection-better').value = dayData.reflectionBetter || '';
 
-        // Render Upcoming Plans (D, D+1, D+2)
+        // Initialize itemMemos if missing
+        if (!dayData.itemMemos) dayData.itemMemos = {};
+
+        updateDayProgress();
+        renderUnifiedTaskBoard();
         renderUpcomingPlans();
-        renderDayTodos();
     };
 
-    const renderDayTodos = () => {
-        const dateKey = getDateKey(currentDate);
-        const dayData = plannerData.day[dateKey];
-        elements.dayTodoList.innerHTML = '';
+    const renderUnifiedTaskBoard = () => {
+        elements.unifiedTaskList.innerHTML = '';
+        renderDayFocusTasksSection();
+        renderDayWeeklyTasksSection();
+    };
 
-        dayData.todos.forEach((todo, idx) => {
+    const updateDayProgress = () => {
+        const dateKey = getDateKey(currentDate);
+
+        // Count focus tasks
+        const focusTasksToday = (plannerData.focusTasks || []).flatMap(task =>
+            (task.subTasks || []).filter(sub => sub.dueDate === dateKey)
+        );
+
+        // Count weekly tasks (진행사항)
+        const { userContent } = parseCellContent(dateKey);
+        const weeklyTasksToday = parseMarkdownList(userContent);
+
+        const allTasks = [
+            ...focusTasksToday.map(s => ({ done: s.done })),
+            ...weeklyTasksToday.map(w => ({ done: w.done }))
+        ];
+
+        const total = allTasks.length;
+        const done = allTasks.filter(t => t.done).length;
+        const percentage = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        elements.dayProgressBar.style.width = `${percentage}%`;
+        elements.dayProgressPercentage.textContent = `${percentage}%`;
+        elements.dayTaskCounts.textContent = `${done} / ${total} tasks completed`;
+    };
+
+
+    const renderDayFocusTasksSection = () => {
+        const dateKey = getDateKey(currentDate);
+        const focusTasksToday = (plannerData.focusTasks || []).flatMap(task =>
+            (task.subTasks || []).filter(sub => sub.dueDate === dateKey).map(sub => ({ ...sub, parentTitle: task.title }))
+        );
+
+        const section = document.createElement('div');
+        section.className = 'task-category-section';
+        section.innerHTML = `
+            <div class="task-category-header">추진사항</div>
+            <div class="task-category-content" id="board-focus-tasks"></div>
+        `;
+        elements.unifiedTaskList.appendChild(section);
+        const container = section.querySelector('#board-focus-tasks');
+
+        if (focusTasksToday.length === 0) {
+            container.innerHTML = '<div class="empty-state">No core focus tasks for today.</div>';
+            return;
+        }
+
+        focusTasksToday.forEach(sub => {
             const item = document.createElement('div');
-            item.className = `day-todo-item ${todo.done ? 'done' : ''}`;
+            item.className = `day-todo-item ${sub.done ? 'done' : ''}`;
+            const status = sub.status || (sub.done ? 'done' : 'wait');
+
+            const memoActive = sub.memo && sub.memo.trim().length > 0;
+
             item.innerHTML = `
-                <input type="checkbox" class="day-todo-checkbox" ${todo.done ? 'checked' : ''} data-idx="${idx}">
-                <span>${todo.text}</span>
-                <button class="btn-delete-todo-day" data-idx="${idx}" title="Delete item">×</button>
+                <div class="status-icon status-${status}" data-task-id="${sub.id}" data-type="focus-sub"></div>
+                <div style="flex:1">
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); opacity: 0.8">${sub.parentTitle}</div>
+                    <span>${sub.title}</span>
+                </div>
+                <div class="btn-task-memo ${memoActive ? 'active' : ''}" data-task-id="${sub.id}" data-type="focus-sub" title="Memo">📝</div>
             `;
-            elements.dayTodoList.appendChild(item);
+            container.appendChild(item);
+        });
+    };
+
+    const renderDayWeeklyTasksSection = () => {
+        const dateKey = getDateKey(currentDate);
+        const { userContent } = parseCellContent(dateKey);
+        const items = parseMarkdownList(userContent);
+
+        const section = document.createElement('div');
+        section.className = 'task-category-section';
+        section.innerHTML = `
+            <div class="task-category-header">진행사항</div>
+            <div class="task-category-content" id="board-weekly-tasks"></div>
+        `;
+        elements.unifiedTaskList.appendChild(section);
+        const container = section.querySelector('#board-weekly-tasks');
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="empty-state">No weekly tasks listed for today.</div>';
+            return;
+        }
+
+        items.forEach((it, idx) => {
+            const item = document.createElement('div');
+            item.className = `day-todo-item ${it.done ? 'done' : ''}`;
+            const status = it.done ? 'done' : (it.progress ? 'progress' : 'wait');
+
+            const dateKey = getDateKey(currentDate);
+            const dayData = plannerData.day[dateKey] || {};
+            const memoActive = dayData.itemMemos && dayData.itemMemos[it.text];
+
+            item.innerHTML = `
+                <div class="status-icon status-${status}" data-idx="${idx}" data-type="weekly-todo"></div>
+                <span style="flex:1">${it.text}</span>
+                <div class="btn-task-memo ${memoActive ? 'active' : ''}" data-idx="${idx}" data-text="${it.text}" data-type="weekly-todo" title="Memo">📝</div>
+            `;
+            container.appendChild(item);
         });
     };
 
@@ -331,12 +498,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const date = new Date(currentDate);
             date.setDate(date.getDate() + i);
             const dateKey = getDateKey(date);
-            const content = plannerData.month[dateKey] || '';
+            const { userContent } = parseCellContent(dateKey);
+            const items = parseMarkdownList(userContent);
             const isToday = i === 0;
 
             const options = { month: 'short', day: 'numeric', weekday: 'short' };
             const dateDisplay = date.toLocaleDateString('ko-KR', options);
             const hName = getHolidayName(date);
+
+            const itemsHtml = items.length > 0 ? `<div class="upcoming-checklist">
+                ${items.map(it => {
+                const statusIcon = it.done ? '✅' : (it.progress ? '▶' : '⬜');
+                return `<div class="compact-todo-item ${it.done ? 'done' : ''}">${statusIcon} ${it.text}</div>`;
+            }).join('')}
+            </div>` : `<div class="upcoming-plan-content">${userContent}</div>`;
 
             const div = document.createElement('div');
             div.className = `upcoming-plan-item ${isToday ? 'today' : ''}`;
@@ -345,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>${dateDisplay} ${isToday ? '(Today)' : ''}</span>
                     ${hName ? `<span class="badge ${isSaturday(date) ? 'is-saturday' : (isHoliday(date) ? 'is-holiday' : '')}">${hName}</span>` : ''}
                 </div>
-                <div class="upcoming-plan-content">${content}</div>
+                ${itemsHtml}
             `;
             elements.upcomingPlansContainer.appendChild(div);
         }
@@ -355,6 +530,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const y = currentDate.getFullYear(), m = currentDate.getMonth();
         const monthYearKey = `${y}-${(m + 1).toString().padStart(2, '0')}`;
         const yearlyGoal = plannerData.year[monthYearKey] || 'No yearly goal set for this month.';
+
+        const nextMonthDate = new Date(y, m + 1, 1);
+        const ny = nextMonthDate.getFullYear(), nm = nextMonthDate.getMonth();
 
         let html = `<div class="monthly-layout">
             <aside class="sidebar-context">
@@ -367,33 +545,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     <textarea class="month-summary-input" data-month="${monthYearKey}">${plannerData.monthSummary?.[monthYearKey] || ''}</textarea>
                 </div>
             </aside>
-            <div class="calendar-grid">`;
-        ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(d => html += `<div class="calendar-day header">${d}</div>`);
+            <div class="calendar-multi-container">
+                <div class="month-grid-section">
+                    <h3 class="month-grid-title">${currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}</h3>
+                    ${generateCalendarGridHTML(y, m)}
+                </div>
+                <div class="month-grid-section">
+                    <h3 class="month-grid-title">${nextMonthDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}</h3>
+                    ${generateCalendarGridHTML(ny, nm)}
+                </div>
+            </div>
+        </div>`;
+        elements.monthView.innerHTML = html;
+    };
+
+    const generateCalendarGridHTML = (y, m) => {
+        let gridHtml = `<div class="calendar-grid">`;
+        ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(d => gridHtml += `<div class="calendar-day header">${d}</div>`);
         const first = new Date(y, m, 1).getDay();
         const last = new Date(y, m + 1, 0).getDate();
-        for (let i = 0; i < first; i++) html += '<div class="calendar-day muted"></div>';
+        for (let i = 0; i < first; i++) gridHtml += '<div class="calendar-day muted"></div>';
         for (let d = 1; d <= last; d++) {
             const date = new Date(y, m, d);
             const dateKey = getDateKey(date);
             const { userContent, syncedItems } = parseCellContent(dateKey);
-            const classList = ['calendar-day'];
+            const items = parseMarkdownList(userContent);
+            const classList = ['calendar-day', 'clickable-day'];
             const hName = getHolidayName(date);
             if (isHoliday(date)) classList.push('is-holiday');
             if (isSaturday(date)) classList.push('is-saturday');
 
-            const syncHtml = syncedItems.map(item => `
+            const syncHtml = (syncedItems || []).map(item => `
                 <div class="sync-item" data-jump-task-id="${item.id}">
                     🚩 <span class="sync-item-type">${item.type.toUpperCase()}</span> ${item.title}
                 </div>
             `).join('');
 
-            html += `<div class="${classList.join(' ')} clickable-day" data-date="${dateKey}">
+            const contentHtml = items.length > 0
+                ? items.map(it => {
+                    const status = it.done ? 'done' : (it.progress ? 'progress' : 'wait');
+                    return `<div class="calendar-todo-item ${it.done ? 'done' : ''}">
+                        <span class="status-icon mini status-${status}"></span> ${it.text}
+                    </div>`;
+                }).join('')
+                : userContent;
+
+            gridHtml += `<div class="${classList.join(' ')}" data-date="${dateKey}">
                 <strong>${d}${hName ? `<span class="holiday-name">${hName}</span>` : ''}</strong>
-                <div class="calendar-day-content">${userContent}</div>
+                <div class="calendar-day-content">${contentHtml}</div>
                 <div class="sync-list">${syncHtml}</div>
             </div>`;
         }
-        elements.monthView.innerHTML = html + '</div></div>';
+        gridHtml += '</div>';
+        return gridHtml;
     };
 
     const renderWeekView = () => {
@@ -413,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay() + i);
             const dateKey = getDateKey(d);
             const { userContent, syncedItems } = parseCellContent(dateKey);
+            const items = parseMarkdownList(userContent);
             const badgeClass = ['badge'];
             const hName = getHolidayName(d);
             if (isHoliday(d)) badgeClass.push('is-holiday');
@@ -424,12 +629,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `).join('');
 
-            html += `<div class="weekly-day-col">
+            let itemsHtml = items.map((item, idx) => {
+                const status = item.done ? 'done' : (item.progress ? 'progress' : 'wait');
+                return `
+                    <div class="weekly-item ${item.done ? 'done' : ''}" draggable="true" data-date="${dateKey}" data-idx="${idx}">
+                        <div class="status-icon status-${status}" data-idx="${idx}" data-date="${dateKey}" data-type="weekly-todo"></div>
+                        <span class="weekly-item-text">${item.text}</span>
+                        <div class="weekly-item-actions">
+                            <button class="btn-item-move" data-date="${dateKey}" data-idx="${idx}" title="Move to another date">📅</button>
+                            <button class="btn-item-delete" data-date="${dateKey}" data-idx="${idx}" title="Delete">×</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            html += `<div class="weekly-day-col" data-drop-zone="true" data-date="${dateKey}">
                 <div class="${badgeClass.join(' ')}">
                     ${d.toLocaleDateString('ko-KR', { weekday: 'short', day: 'numeric' })}
                     ${hName ? `<span class="holiday-name">${hName}</span>` : ''}
                 </div>
-                <textarea class="week-input" data-date="${dateKey}">${userContent}</textarea>
+                <div class="weekly-items-container" id="items-${dateKey}">
+                    ${itemsHtml}
+                </div>
+                <div class="weekly-input-group">
+                    <input type="text" class="weekly-item-add-input" placeholder="Add item..." data-date="${dateKey}">
+                    <button class="btn-weekly-add" data-date="${dateKey}">+</button>
+                </div>
                 <div class="sync-list">${syncHtml}</div>
             </div>`;
         }
@@ -485,6 +710,21 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
         elements.holidayManagerContainer.innerHTML = html || '<p style="text-align:center; color:var(--text-secondary);">No holidays defined.</p>';
+
+        // Category Manager
+        const categoryContainer = document.getElementById('category-manager-container');
+        if (categoryContainer) {
+            let catHtml = '';
+            (plannerData.settings.memoCategories || []).forEach((cat, idx) => {
+                catHtml += `
+                    <div class="category-item" data-idx="${idx}">
+                        <input type="text" class="category-name-input" value="${cat}" placeholder="Category Name">
+                        <button class="btn-delete-category" title="Delete category">×</button>
+                    </div>
+                `;
+            });
+            categoryContainer.innerHTML = catHtml || '<p style="text-align:center; color:var(--text-secondary);">No categories defined.</p>';
+        }
     };
 
     const renderFocusView = () => {
@@ -520,6 +760,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const taskEl = document.createElement('div');
             taskEl.className = `task-row task-level ${isArchived ? 'archived' : ''}`;
             taskEl.dataset.taskId = task.id;
+            taskEl.dataset.type = 'task';
+            if (!isArchived) taskEl.draggable = true;
 
             // Render main task content
             taskEl.innerHTML = `
@@ -528,8 +770,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="btn-toggle-task-collapse" data-task-id="${task.id}" title="${task.collapsed ? 'Expand' : 'Collapse'}">
                             ${task.collapsed ? '▶' : '▼'}
                         </button>
-                        <div style="flex:1;">
-                            <input type="text" class="task-title-input" value="${task.title || ''}" placeholder="Main Task Title..." data-task-id="${task.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        <input type="checkbox" class="task-check" ${task.done ? 'checked' : ''} data-task-id="${task.id}" data-type="task" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                        <div style="flex:1; display: flex; align-items: center; min-height: 25px;">
+                            <div class="markdown-display" data-task-id="${task.id}" data-type="task">
+                                ${marked.parse(task.title || 'Main Task Title...')}
+                            </div>
+                            <input type="text" class="task-title-input hidden-input" placeholder="Main Task Title..." data-task-id="${task.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}" value="${task.title || ''}">
                             <div class="task-progress-mini"><div class="task-progress-bar-mini" style="width: ${progress}%"></div></div>
                         </div>
                     </div>
@@ -563,13 +809,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const subEl = document.createElement('div');
                     subEl.className = `task-row sub-level ${isArchived ? 'archived' : ''}`;
+                    subEl.dataset.taskId = task.id;
+                    subEl.dataset.subId = sub.id;
+                    subEl.dataset.type = 'sub';
+                    if (!isArchived) subEl.draggable = true;
                     subEl.innerHTML = `
                         <div class="col-title">
                             <div style="display:flex; align-items:center;">
                                 <button class="btn-toggle-collapse" data-task-id="${task.id}" data-sub-id="${sub.id}" title="${sub.collapsed ? 'Expand' : 'Collapse'}">
                                     ${sub.collapsed ? '▶' : '▼'}
                                 </button>
-                                <input type="text" class="sub-title-input" value="${sub.title || ''}" placeholder="Sub-Task Title..." data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                <input type="checkbox" class="sub-check" ${sub.done ? 'checked' : ''} data-task-id="${task.id}" data-sub-id="${sub.id}" data-type="sub" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                <div class="markdown-display" data-task-id="${task.id}" data-sub-id="${sub.id}" data-type="sub">
+                                    ${marked.parse(sub.title || 'Sub-Task Title...')}
+                                </div>
+                                <input type="text" class="sub-title-input hidden-input" placeholder="Sub-Task Title..." data-task-id="${task.id}" data-sub-id="${sub.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}" value="${sub.title || ''}">
                             </div>
                         </div>
                         <div class="col-owner">
@@ -595,11 +849,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (hideCompleted && todo.done) return;
                             const todoEl = document.createElement('div');
                             todoEl.className = `task-row todo-level ${isArchived ? 'archived' : ''}`;
+                            todoEl.dataset.taskId = task.id;
+                            todoEl.dataset.subId = sub.id;
+                            todoEl.dataset.todoId = todo.id;
+                            todoEl.dataset.type = 'todo';
+                            if (!isArchived) todoEl.draggable = true;
                             todoEl.innerHTML = `
                             <div class="col-title">
-                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <div style="display:flex; align-items:center;">
+                                    <span style="width: 20px; display: inline-block;"></span> <!-- Spacer for missing toggle -->
                                     <input type="checkbox" class="todo-check" ${todo.done ? 'checked' : ''} data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
-                                    <input type="text" class="todo-title-input" value="${todo.title || ''}" placeholder="What needs to be done?" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}">
+                                    <div class="markdown-display" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-type="todo">
+                                        ${marked.parse(todo.title || 'What needs to be done?')}
+                                    </div>
+                                    <input type="text" class="todo-title-input hidden-input" placeholder="What needs to be done?" data-task-id="${task.id}" data-sub-id="${sub.id}" data-todo-id="${todo.id}" data-field="title" ${isArchived ? 'disabled' : ''} data-is-archived="${isArchived}" value="${todo.title || ''}">
                                 </div>
                             </div>
                             <div class="col-owner">
@@ -642,6 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTaskRows(task, true).forEach(row => elements.focusTasksList.appendChild(row));
             });
         }
+
     };
 
     const setGHStatus = (status, text, errorMsg = null) => {
@@ -883,8 +1147,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setupEventListeners = () => {
         elements.navLinks.forEach(link => link.addEventListener('click', () => {
-            elements.navLinks.forEach(l => l.classList.remove('active'));
-            link.classList.add('active'); currentView = link.dataset.view;
+            currentView = link.dataset.view;
+
+            // Reset to today when clicking Day, Week, or Month
+            if (['day', 'week', 'month'].includes(currentView)) {
+                currentDate = new Date();
+            }
+
             renderActiveView();
         }));
 
@@ -900,10 +1169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.nextBtn.addEventListener('click', () => changeDate(1));
         elements.todayBtn.addEventListener('click', () => { currentDate = new Date(); renderActiveView(); });
 
-        elements.dayPrevBtn.addEventListener('click', () => changeDate(-1));
-        elements.dayNextBtn.addEventListener('click', () => changeDate(1));
-        elements.dayTodayBtn.addEventListener('click', () => { currentDate = new Date(); renderActiveView(); });
-
         document.addEventListener('input', (e) => {
             const t = e.target; const dk = getDateKey(currentDate);
             if (currentView === 'day') {
@@ -912,12 +1177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!dayEntry.activities) dayEntry.activities = {};
                 if (!dayEntry.focus) dayEntry.focus = {};
 
-                if (t.classList.contains('activity-input')) {
-                    const time = t.dataset.time;
-                    const type = t.dataset.type;
-                    if (!dayEntry.activities[time]) dayEntry.activities[time] = { plan: '', do: '' };
-                    dayEntry.activities[time][type] = t.value;
-                }
                 if (t.dataset.field) dayEntry[t.dataset.field] = t.value;
             } else if (currentView === 'month') {
                 if (t.classList.contains('calendar-input')) {
@@ -937,47 +1196,157 @@ document.addEventListener('DOMContentLoaded', () => {
                 plannerData.month[t.dataset.date] = newContent.trim();
             } else if (currentView === 'year' && t.classList.contains('year-input')) {
                 plannerData.year[t.dataset.month] = t.value;
-            } else if (currentView === 'focus') {
+            }
+            saveData();
+        });
+
+        // Focus View Drag & Drop logic
+        let draggedRow = null;
+
+        document.addEventListener('dragstart', (e) => {
+            if (currentView !== 'focus') return;
+            const t = e.target.closest('.task-row');
+            if (t) {
+                draggedRow = t;
+                t.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', '');
+                e.dataTransfer.effectAllowed = 'move';
+            }
+        });
+
+        document.addEventListener('dragover', (e) => {
+            if (currentView !== 'focus' || !draggedRow) return;
+            e.preventDefault();
+            const t = e.target.closest('.task-row');
+            if (!t || t === draggedRow) return;
+
+            const rect = t.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            t.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-inside');
+
+            const draggedType = draggedRow.dataset.type;
+            const targetType = t.dataset.type;
+
+            if (draggedType === 'sub' && targetType === 'task') {
+                t.classList.add('drag-over-inside');
+            } else if (draggedType === 'todo' && targetType === 'sub') {
+                t.classList.add('drag-over-inside');
+            } else if (draggedType === targetType) {
+                if (relY < rect.height / 2) t.classList.add('drag-over-top');
+                else t.classList.add('drag-over-bottom');
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            const t = e.target.closest('.task-row');
+            if (t) t.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-inside');
+        });
+
+        document.addEventListener('drop', (e) => {
+            if (currentView !== 'focus' || !draggedRow) return;
+            e.preventDefault();
+            const t = e.target.closest('.task-row');
+            if (!t || t === draggedRow) {
+                draggedRow.classList.remove('dragging');
+                draggedRow = null;
+                return;
+            }
+
+            const draggedType = draggedRow.dataset.type;
+            const targetType = t.dataset.type;
+            const draggedTaskId = draggedRow.dataset.taskId;
+            const draggedSubId = draggedRow.dataset.subId;
+            const draggedTodoId = draggedRow.dataset.todoId;
+
+            const rect = t.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            const placement = relY < rect.height / 2 ? 'before' : 'after';
+
+            if (draggedType === 'task' && targetType === 'task') {
+                const list = plannerData.focusTasks;
+                const dIdx = list.findIndex(i => i.id === draggedTaskId);
+                const [item] = list.splice(dIdx, 1);
+                const tIdx = list.findIndex(i => i.id === t.dataset.taskId);
+                list.splice(placement === 'before' ? tIdx : tIdx + 1, 0, item);
+            } else if (draggedType === 'sub') {
+                const oldParent = plannerData.focusTasks.find(i => i.id === draggedTaskId);
+                const sIdx = oldParent.subTasks.findIndex(s => s.id === draggedSubId);
+                const [item] = oldParent.subTasks.splice(sIdx, 1);
+                if (targetType === 'task' && (placement === 'after' || e.target.closest('.task-row').classList.contains('drag-over-inside'))) {
+                    const newParent = plannerData.focusTasks.find(i => i.id === t.dataset.taskId);
+                    if (!newParent.subTasks) newParent.subTasks = [];
+                    newParent.subTasks.unshift(item);
+                } else {
+                    const newParent = plannerData.focusTasks.find(i => i.id === t.dataset.taskId);
+                    const tIdx = newParent.subTasks.findIndex(s => s.id === t.dataset.subId);
+                    newParent.subTasks.splice(placement === 'before' ? tIdx : tIdx + 1, 0, item);
+                }
+            } else if (draggedType === 'todo') {
+                const oldRoot = plannerData.focusTasks.find(i => i.id === draggedTaskId);
+                const oldSub = oldRoot.subTasks.find(s => s.id === draggedSubId);
+                const tdIdx = oldSub.todos.findIndex(td => td.id === draggedTodoId);
+                const [item] = oldSub.todos.splice(tdIdx, 1);
+                if (targetType === 'sub' && (placement === 'after' || e.target.closest('.task-row').classList.contains('drag-over-inside'))) {
+                    const newRoot = plannerData.focusTasks.find(i => i.id === t.dataset.taskId);
+                    const newSub = newRoot.subTasks.find(s => s.id === t.dataset.subId);
+                    if (!newSub.todos) newSub.todos = [];
+                    newSub.todos.unshift(item);
+                } else if (targetType === 'todo') {
+                    const newRoot = plannerData.focusTasks.find(i => i.id === t.dataset.taskId);
+                    const newSub = newRoot.subTasks.find(s => s.id === t.dataset.subId);
+                    const tIdx = newSub.todos.findIndex(td => td.id === t.dataset.todoId);
+                    newSub.todos.splice(placement === 'before' ? tIdx : tIdx + 1, 0, item);
+                }
+            }
+            t.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-inside');
+            draggedRow.classList.remove('dragging');
+            draggedRow = null;
+            saveData();
+            renderFocusView();
+        });
+
+        document.addEventListener('input', (e) => {
+            const t = e.target;
+            if (t.classList.contains('auto-expand')) {
+                t.style.height = 'auto';
+                t.style.height = t.scrollHeight + 'px';
+            }
+            if (currentView === 'focus') {
                 const { taskId, subId, todoId, field, isArchived } = t.dataset;
-                if (taskId !== undefined) {
+                if (taskId) {
                     const taskList = isArchived === 'true' ? plannerData.archivedTasks : plannerData.focusTasks;
                     const task = taskList.find(i => i.id === taskId);
-                    if (!task) return;
-
-                    if (todoId !== undefined) {
-                        const sub = task.subTasks.find(s => s.id === subId);
-                        if (!sub) return;
-                        const todo = sub.todos.find(td => td.id === todoId);
-                        if (!todo) return;
-                        if (t.type === 'checkbox') todo.done = t.checked;
-                        else todo[field] = t.value;
-                    } else if (subId !== undefined) {
-                        const sub = task.subTasks.find(s => s.id === subId);
-                        if (!sub) return;
-                        sub[field] = t.value;
-                    } else {
-                        task[field] = t.value;
-                    }
-
-                    // Auto-save assignee to common list
-                    if (field === 'owner' && t.value.trim().length > 0) {
-                        if (!plannerData.assignees) plannerData.assignees = [];
-                        if (!plannerData.assignees.includes(t.value.trim())) {
-                            plannerData.assignees.push(t.value.trim());
+                    if (task) {
+                        if (subId) {
+                            const sub = task.subTasks.find(s => s.id === subId);
+                            if (sub) {
+                                if (todoId) {
+                                    const todo = sub.todos.find(td => td.id === todoId);
+                                    if (todo) {
+                                        if (t.type === 'checkbox') todo.done = t.checked;
+                                        else todo[field] = t.value;
+                                    }
+                                } else {
+                                    if (t.type === 'checkbox') sub.done = t.checked;
+                                    else sub[field] = t.value;
+                                }
+                            }
+                        } else {
+                            if (t.type === 'checkbox') task.done = t.checked;
+                            else task[field] = t.value;
                         }
-                    }
-
-                    // Sync to calendar if dueDate or title changed
-                    if (field === 'dueDate' || field === 'title') {
-                        syncFocusTasksToCalendar();
+                        if (field === 'owner' && t.value.trim().length > 0) {
+                            if (!plannerData.assignees) plannerData.assignees = [];
+                            if (!plannerData.assignees.includes(t.value.trim())) plannerData.assignees.push(t.value.trim());
+                        }
+                        if (field === 'dueDate' || field === 'title') syncFocusTasksToCalendar();
+                        saveData();
+                        if (e.target.type === 'checkbox') renderFocusView();
                     }
                 }
             }
-            saveData();
-            if (currentView === 'focus' && e.target.type === 'checkbox') renderFocusView();
         });
 
-        // Day View Textarea Auto-save
         document.addEventListener('change', (e) => {
             const t = e.target;
             if (currentView === 'day' && t.tagName === 'TEXTAREA' && t.dataset.field) {
@@ -990,17 +1359,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (elements.addTaskBtn) {
             elements.addTaskBtn.addEventListener('click', () => {
-                plannerData.focusTasks.push({
-                    id: crypto.randomUUID(),
-                    title: '',
-                    subTasks: [],
-                    created: getDateKey(new Date())
-                });
+                plannerData.focusTasks.push({ id: crypto.randomUUID(), title: '', subTasks: [], created: getDateKey(new Date()) });
                 saveData();
                 renderFocusView();
-                // Focus newly added task
                 const inputs = elements.focusTasksList.querySelectorAll('.task-title-input');
-                inputs[inputs.length - 1].focus();
+                if (inputs.length > 0) inputs[inputs.length - 1].focus();
             });
         }
 
@@ -1013,45 +1376,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 const targetList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
                 const task = targetList.find(i => i.id === taskId);
                 task.collapsed = !task.collapsed;
-                saveData();
-                renderFocusView();
+                saveData(); renderFocusView();
                 return;
             }
-
             if (t.classList.contains('btn-toggle-collapse')) {
                 const targetList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
                 const task = targetList.find(i => i.id === taskId);
                 const sub = task.subTasks.find(s => s.id === subId);
                 sub.collapsed = !sub.collapsed;
-                saveData();
-                renderFocusView();
+                saveData(); renderFocusView();
                 return;
             }
-
             const taskList = isArchivedBool ? plannerData.archivedTasks : plannerData.focusTasks;
-
             if (t.classList.contains('btn-delete-task')) {
                 const idx = taskList.findIndex(i => i.id === taskId);
-                if (idx !== -1 && confirm('Delete this task permanently?')) {
+                if (idx !== -1 && confirm('Delete this task?')) {
                     taskList.splice(idx, 1);
-                    syncFocusTasksToCalendar();
-                    saveData(); renderFocusView();
+                    syncFocusTasksToCalendar(); saveData(); renderFocusView();
                 }
             } else if (t.classList.contains('btn-complete-task')) {
                 const idx = plannerData.focusTasks.findIndex(i => i.id === taskId);
                 if (idx !== -1) {
                     const [task] = plannerData.focusTasks.splice(idx, 1);
                     plannerData.archivedTasks.unshift(task);
-                    syncFocusTasksToCalendar();
-                    saveData(); renderFocusView();
+                    syncFocusTasksToCalendar(); saveData(); renderFocusView();
                 }
             } else if (t.classList.contains('btn-restore-task')) {
                 const idx = plannerData.archivedTasks.findIndex(i => i.id === taskId);
                 if (idx !== -1) {
                     const [task] = plannerData.archivedTasks.splice(idx, 1);
                     plannerData.focusTasks.push(task);
-                    syncFocusTasksToCalendar();
-                    saveData(); renderFocusView();
+                    syncFocusTasksToCalendar(); saveData(); renderFocusView();
                 }
             } else if (t.classList.contains('btn-sub-add')) {
                 const task = plannerData.focusTasks.find(i => i.id === taskId);
@@ -1066,8 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sIdx = task.subTasks.findIndex(s => s.id === subId);
                     if (sIdx !== -1) {
                         task.subTasks.splice(sIdx, 1);
-                        syncFocusTasksToCalendar();
-                        saveData(); renderFocusView();
+                        syncFocusTasksToCalendar(); saveData(); renderFocusView();
                     }
                 }
             } else if (t.classList.contains('btn-todo-add')) {
@@ -1088,19 +1442,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         const tdIdx = sub.todos.findIndex(td => td.id === todoId);
                         if (tdIdx !== -1) {
                             sub.todos.splice(tdIdx, 1);
-                            syncFocusTasksToCalendar();
-                            saveData(); renderFocusView();
+                            syncFocusTasksToCalendar(); saveData(); renderFocusView();
                         }
                     }
                 }
             } else if (t.closest('.sync-item')) {
                 const jumpId = t.closest('.sync-item').dataset.jumpTaskId;
                 currentView = 'focus';
-                elements.navLinks.forEach(l => {
-                    l.classList.toggle('active', l.dataset.view === 'focus');
-                });
+                elements.navLinks.forEach(l => l.classList.toggle('active', l.dataset.view === 'focus'));
                 renderActiveView();
-
                 setTimeout(() => {
                     const targetCard = document.querySelector(`.task-row.task-level[data-task-id="${jumpId}"]`);
                     if (targetCard) {
@@ -1110,6 +1460,149 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 100);
             }
+
+            // Weekly View Interactions
+            if (t.classList.contains('btn-weekly-add')) {
+                const dateKey = t.dataset.date;
+                const input = document.querySelector(`.weekly-item-add-input[data-date="${dateKey}"]`);
+                addWeeklyItem(dateKey, input);
+            } else if (t.classList.contains('btn-item-delete')) {
+                const { date, idx } = t.dataset;
+                const { userContent, syncedItems } = parseCellContent(date);
+                const items = parseMarkdownList(userContent);
+                if (confirm('Delete this item?')) {
+                    items.splice(idx, 1);
+                    updateWeeklyData(date, items, syncedItems);
+                }
+            } else if (t.classList.contains('btn-item-move')) {
+                const { date, idx } = t.dataset;
+                moveSourceDate = date; moveSourceIdx = parseInt(idx);
+                elements.moveItemDatePicker.value = date;
+                if (elements.moveItemDatePicker.showPicker) elements.moveItemDatePicker.showPicker();
+                elements.moveItemDatePicker.click();
+            }
+
+            // Markdown Toggle Logic
+            if (t.classList.contains('markdown-display')) {
+                const parent = t.parentElement;
+                const input = parent.querySelector('input[type="text"]');
+                if (input && !input.disabled) {
+                    t.classList.add('hidden-input');
+                    input.classList.remove('hidden-input');
+                    input.focus();
+                }
+            }
+        });
+
+        document.addEventListener('focusout', (e) => {
+            const t = e.target;
+            if (t.classList.contains('task-title-input') || t.classList.contains('sub-title-input') || t.classList.contains('todo-title-input')) {
+                const parent = t.parentElement;
+                const display = parent.querySelector('.markdown-display');
+                if (display) {
+                    t.classList.add('hidden-input');
+                    display.classList.remove('hidden-input');
+                    // Re-render markdown with new value
+                    display.innerHTML = marked.parse(t.value || (t.classList.contains('task-title-input') ? 'Main Task Title...' : (t.classList.contains('sub-title-input') ? 'Sub-Task Title...' : 'What needs to be done?')));
+                }
+            }
+        });
+
+        const addWeeklyItem = (dateKey, input) => {
+            const text = input.value.trim();
+            if (!text) return;
+            const { userContent, syncedItems } = parseCellContent(dateKey);
+            const items = parseMarkdownList(userContent);
+            items.push({ text, done: false });
+            updateWeeklyData(dateKey, items, syncedItems);
+            input.value = '';
+        };
+
+        const updateWeeklyData = (dateKey, items, syncedItems) => {
+            const syncMarker = "[[FOCUS_SYNC_START]]";
+            const newContent = serializeMarkdownList(items) + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+            plannerData.month[dateKey] = newContent.trim();
+            saveData();
+            renderActiveView();
+        };
+
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('weekly-item-add-input')) {
+                addWeeklyItem(e.target.dataset.date, e.target);
+            }
+        });
+
+        // Date Picker Move Listener
+        elements.moveItemDatePicker.addEventListener('change', (e) => {
+            const targetDate = e.target.value;
+            if (targetDate && moveSourceDate && moveSourceIdx !== -1) {
+                const { userContent, syncedItems } = parseCellContent(moveSourceDate);
+                const items = parseMarkdownList(userContent);
+                const [item] = items.splice(moveSourceIdx, 1);
+                updateWeeklyData(moveSourceDate, items, syncedItems);
+
+                const targetRes = parseCellContent(targetDate);
+                const targetItems = parseMarkdownList(targetRes.userContent);
+                targetItems.push(item);
+                updateWeeklyData(targetDate, targetItems, targetRes.syncedItems);
+
+                moveSourceDate = '';
+                moveSourceIdx = -1;
+                e.target.value = ''; // Reset for next move
+            }
+        });
+
+        // Drag & Drop Listeners
+        document.addEventListener('dragstart', (e) => {
+            const item = e.target.closest('.weekly-item');
+            if (item) {
+                draggedItem = { date: item.dataset.date, idx: parseInt(item.dataset.idx) };
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            }
+        });
+
+        document.addEventListener('dragover', (e) => {
+            const dropZone = e.target.closest('[data-drop-zone="true"]');
+            if (dropZone) {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+                e.dataTransfer.dropEffect = 'move';
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            const dropZone = e.target.closest('[data-drop-zone="true"]');
+            if (dropZone) dropZone.classList.remove('drag-over');
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const dropZone = e.target.closest('[data-drop-zone="true"]');
+            if (dropZone && draggedItem) {
+                const targetDate = dropZone.dataset.date;
+                const sourceDate = draggedItem.date;
+                const sourceIdx = draggedItem.idx;
+
+                if (targetDate !== sourceDate) {
+                    const { userContent, syncedItems } = parseCellContent(sourceDate);
+                    const items = parseMarkdownList(userContent);
+                    const [item] = items.splice(sourceIdx, 1);
+                    updateWeeklyData(sourceDate, items, syncedItems);
+
+                    const targetRes = parseCellContent(targetDate);
+                    const targetItems = parseMarkdownList(targetRes.userContent);
+                    targetItems.push(item);
+                    updateWeeklyData(targetDate, targetItems, targetRes.syncedItems);
+                }
+            }
+            if (dropZone) dropZone.classList.remove('drag-over');
+        });
+
+        document.addEventListener('dragend', (e) => {
+            const item = e.target.closest('.weekly-item');
+            if (item) item.classList.remove('dragging');
+            draggedItem = null;
         });
 
         elements.exportBtn.addEventListener('click', async () => {
@@ -1350,37 +1843,135 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Day To-Do list listeners
         const addDayTodo = () => {
-            const text = elements.dayTodoInput.value.trim();
+            const text = elements.mainDayTodoInput.value.trim();
             if (!text) return;
             const dateKey = getDateKey(currentDate);
-            if (!plannerData.day[dateKey].todos) plannerData.day[dateKey].todos = [];
-            plannerData.day[dateKey].todos.push({ text, done: false });
-            elements.dayTodoInput.value = '';
+
+            // Add to Weekly/Monthly content (진행사항)
+            const { userContent, syncedItems } = parseCellContent(dateKey);
+            const items = parseMarkdownList(userContent);
+            items.push({ text, done: false, progress: false });
+
+            const syncMarker = "[[FOCUS_SYNC_START]]";
+            const newContent = serializeMarkdownList(items) + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+            plannerData.month[dateKey] = newContent.trim();
+
+            elements.mainDayTodoInput.value = '';
             saveData();
-            renderDayTodos();
+            renderDayView();
         };
 
-        elements.addDayTodoBtn.addEventListener('click', addDayTodo);
-        elements.dayTodoInput.addEventListener('keypress', (e) => {
+        elements.addMainDayTodoBtn.addEventListener('click', addDayTodo);
+        elements.mainDayTodoInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addDayTodo();
         });
 
-        elements.dayTodoList.addEventListener('click', (e) => {
-            const t = e.target;
-            const idx = t.dataset.idx;
-            if (idx === undefined) return;
-            const dateKey = getDateKey(currentDate);
+        const handleStatusToggle = (type, idOrIdx, dateOverride) => {
+            const states = ['wait', 'progress', 'done'];
+            if (type === 'focus-sub') {
+                plannerData.focusTasks.forEach(task => {
+                    (task.subTasks || []).forEach(sub => {
+                        if (sub.id === idOrIdx) {
+                            const currentStatus = sub.status || (sub.done ? 'done' : 'wait');
+                            const nextStatus = states[(states.indexOf(currentStatus) + 1) % 3];
+                            sub.status = nextStatus;
+                            sub.done = (nextStatus === 'done');
+                        }
+                    });
+                });
+            } else if (type === 'weekly-todo') {
+                const dateKey = dateOverride || getDateKey(currentDate);
+                const { userContent, syncedItems } = parseCellContent(dateKey);
+                const items = parseMarkdownList(userContent);
+                const item = items[idOrIdx];
 
-            if (t.classList.contains('day-todo-checkbox')) {
-                plannerData.day[dateKey].todos[idx].done = t.checked;
-                saveData();
-                renderDayTodos();
-            } else if (t.classList.contains('btn-delete-todo-day')) {
-                plannerData.day[dateKey].todos.splice(idx, 1);
-                saveData();
-                renderDayTodos();
+                const currentStatus = item.done ? 'done' : (item.progress ? 'progress' : 'wait');
+                const nextStatus = states[(states.indexOf(currentStatus) + 1) % 3];
+
+                item.done = (nextStatus === 'done');
+                item.progress = (nextStatus === 'progress');
+
+                const syncMarker = "[[FOCUS_SYNC_START]]";
+                const newContent = serializeMarkdownList(items) + (syncedItems.length > 0 ? "\n\n" + syncMarker + "\n" + JSON.stringify(syncedItems) : "");
+                plannerData.month[dateKey] = newContent.trim();
+            }
+            saveData();
+            renderActiveView();
+        };
+
+
+
+        // Delegate status and memo clicks globally
+        document.addEventListener('click', (e) => {
+            const t = e.target;
+
+            // Status Icon Toggle
+            const statusIcon = t.closest('.status-icon');
+            if (statusIcon) {
+                const type = statusIcon.dataset.type;
+                const isIdxType = type === 'weekly-todo';
+                const idOrIdx = isIdxType ? parseInt(statusIcon.dataset.idx) : statusIcon.dataset.taskId;
+                const dateOverride = statusIcon.dataset.date;
+                handleStatusToggle(type, idOrIdx, dateOverride);
+                return;
+            }
+
+            // Task Memo Toggle
+            const memoBtn = t.closest('.btn-task-memo');
+            if (memoBtn) {
+                const type = memoBtn.dataset.type;
+                const dateKey = memoBtn.dataset.date || getDateKey(currentDate);
+                const idOrText = type === 'weekly-todo' ? memoBtn.dataset.text : memoBtn.dataset.taskId;
+
+                currentMemoTarget = { type, idOrText, date: dateKey };
+
+                let existingMemo = "";
+                if (type === 'focus-sub') {
+                    plannerData.focusTasks.forEach(task => {
+                        (task.subTasks || []).forEach(sub => {
+                            if (sub.id === idOrText) existingMemo = sub.memo || "";
+                        });
+                    });
+                } else {
+                    const dayData = plannerData.day[dateKey] || {};
+                    if (dayData.itemMemos) existingMemo = dayData.itemMemos[idOrText] || "";
+                }
+
+                elements.taskMemoInput.value = existingMemo;
+                elements.taskMemoTitle.textContent = `${type === 'focus-sub' ? '진행관련' : '진행사항'} Memo`;
+                elements.taskMemoModal.classList.remove('hidden');
+                elements.taskMemoInput.focus();
+                return;
             }
         });
+
+        // Task Memo Modal Listeners
+        elements.closeTaskMemoModal.addEventListener('click', () => {
+            elements.taskMemoModal.classList.add('hidden');
+        });
+
+        elements.saveTaskMemoBtn.addEventListener('click', () => {
+            if (!currentMemoTarget) return;
+            const content = elements.taskMemoInput.value.trim();
+            const { type, idOrText, date } = currentMemoTarget;
+
+            if (type === 'focus-sub') {
+                plannerData.focusTasks.forEach(task => {
+                    (task.subTasks || []).forEach(sub => {
+                        if (sub.id === idOrText) sub.memo = content;
+                    });
+                });
+            } else {
+                if (!plannerData.day[date]) plannerData.day[date] = {};
+                if (!plannerData.day[date].itemMemos) plannerData.day[date].itemMemos = {};
+                plannerData.day[date].itemMemos[idOrText] = content;
+            }
+
+            saveData();
+            renderDayView();
+            elements.taskMemoModal.classList.add('hidden');
+        });
+
 
         // Manual Save Button
         if (elements.saveDataBtn) {
@@ -1401,49 +1992,297 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.syncBtn.addEventListener('click', syncWithGitHub);
         }
 
-        elements.copyPlanBtn.addEventListener('click', () => {
-            const dk = getDateKey(currentDate);
-            const dayEntry = plannerData.day[dk];
-            if (!dayEntry || !dayEntry.activities) {
-                alert("No plans found for today to copy.");
-                return;
-            }
-            const planToCopy = {};
-            Object.keys(dayEntry.activities).forEach(time => {
-                if (dayEntry.activities[time].plan) {
-                    planToCopy[time] = dayEntry.activities[time].plan;
+        if (elements.copyPlanBtn) {
+            elements.copyPlanBtn.addEventListener('click', () => {
+                const dk = getDateKey(currentDate);
+                const dayEntry = plannerData.day[dk];
+                if (!dayEntry || !dayEntry.activities) {
+                    alert("No plans found for today to copy.");
+                    return;
                 }
+                const planToCopy = {};
+                Object.keys(dayEntry.activities).forEach(time => {
+                    if (dayEntry.activities[time].plan) {
+                        planToCopy[time] = dayEntry.activities[time].plan;
+                    }
+                });
+                if (Object.keys(planToCopy).length === 0) {
+                    alert("The Plan column is empty.");
+                    return;
+                }
+                localStorage.setItem('antigravity_copied_plan', JSON.stringify(planToCopy));
+                alert("Daily Plan copied! You can now go to another date and paste it.");
             });
-            if (Object.keys(planToCopy).length === 0) {
-                alert("The Plan column is empty.");
-                return;
-            }
-            localStorage.setItem('antigravity_copied_plan', JSON.stringify(planToCopy));
-            alert("Daily Plan copied! You can now go to another date and paste it.");
-        });
+        }
 
-        elements.pastePlanBtn.addEventListener('click', () => {
-            const raw = localStorage.getItem('antigravity_copied_plan');
-            if (!raw) {
-                alert("No copied plan found. Please copy one first.");
-                return;
-            }
-            const copiedPlan = JSON.parse(raw);
-            const dk = getDateKey(currentDate);
-            if (!plannerData.day[dk]) plannerData.day[dk] = { activities: {}, focus: {} };
-            const dayEntry = plannerData.day[dk];
-            if (!dayEntry.activities) dayEntry.activities = {};
+        if (elements.pastePlanBtn) {
+            elements.pastePlanBtn.addEventListener('click', () => {
+                const raw = localStorage.getItem('antigravity_copied_plan');
+                if (!raw) {
+                    alert("No copied plan found. Please copy one first.");
+                    return;
+                }
+                const copiedPlan = JSON.parse(raw);
+                const dk = getDateKey(currentDate);
+                if (!plannerData.day[dk]) plannerData.day[dk] = { activities: {}, focus: {} };
+                const dayEntry = plannerData.day[dk];
+                if (!dayEntry.activities) dayEntry.activities = {};
 
-            Object.keys(copiedPlan).forEach(time => {
-                if (!dayEntry.activities[time]) dayEntry.activities[time] = { plan: '', do: '' };
-                dayEntry.activities[time].plan = copiedPlan[time];
+                Object.keys(copiedPlan).forEach(time => {
+                    if (!dayEntry.activities[time]) dayEntry.activities[time] = { plan: '', do: '' };
+                    dayEntry.activities[time].plan = copiedPlan[time];
+                });
+
+                saveData();
+                renderDayView();
+                alert("Plan pasted!");
             });
+        }
 
-            saveData();
-            renderDayView();
-            alert("Plan pasted!");
-        });
+        // Network Status Listeners removed
     };
+
+    let editingCardId = null;
+    let editingEntryId = null;
+
+    const renderMemoView = () => {
+        const searchTerm = elements.memoSearch.value.toLowerCase();
+        const categoryFilter = elements.memoFilterCategory.value;
+
+        const filteredMemos = (plannerData.memos || []).filter(memo => {
+            const matchesSearch = memo.title.toLowerCase().includes(searchTerm) ||
+                memo.entries.some(e => e.text.toLowerCase().includes(searchTerm));
+            const matchesCategory = categoryFilter === 'all' || memo.category === categoryFilter;
+            return matchesSearch && matchesCategory;
+        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Dynamically update filter options
+        const currentFilterValue = elements.memoFilterCategory.value;
+        elements.memoFilterCategory.innerHTML = '<option value="all">All Categories</option>' +
+            (plannerData.settings.memoCategories || []).map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        elements.memoFilterCategory.value = currentFilterValue;
+        if (!elements.memoFilterCategory.value) elements.memoFilterCategory.value = 'all';
+
+        elements.memoList.innerHTML = filteredMemos.map(memo => `
+            <div class="memo-card" data-memo-id="${memo.id}">
+                <div class="memo-card-header">
+                    <h3 class="memo-title">${memo.title || 'Untitled'}</h3>
+                    <div class="card-header-actions">
+                        <button class="btn-add-entry" data-memo-id="${memo.id}" title="Add entry">+</button>
+                        <button class="btn-memo-settings" data-memo-id="${memo.id}" title="Card settings">⚙</button>
+                    </div>
+                </div>
+                <div class="memo-entries-list">
+                    ${memo.entries.map(entry => `
+                        <div class="entry-item" data-entry-id="${entry.id}">
+                            <div class="entry-text">${entry.text.replace(/\n/g, '<br>')}<span class="memo-timestamp">${entry.timestamp}</span></div>
+                            <div class="entry-actions">
+                                <button class="btn-entry-edit" data-memo-id="${memo.id}" data-entry-id="${entry.id}" title="Edit entry">✎</button>
+                                <button class="btn-entry-delete" data-memo-id="${memo.id}" data-entry-id="${entry.id}" title="Delete entry">×</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="memo-card-footer">
+                    <span class="memo-category-badge cat-${memo.category}">${memo.category}</span>
+                    <div class="memo-card-actions">
+                        <span class="memo-date">${memo.date}</span>
+                        <button class="btn-memo-delete" data-memo-id="${memo.id}" title="Delete entire card">Delete Card</button>
+                    </div>
+                </div>
+            </div>
+        `).join('') || '<p style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-secondary);">No memos found matching your criteria.</p>';
+    };
+
+    // Initialize Memo Data
+    if (!plannerData.memos) plannerData.memos = [];
+
+    // Memo Event Listeners
+    elements.addMemoBtn.addEventListener('click', () => {
+        editingCardId = null;
+        elements.memoModalTitle.innerText = 'New Memo Card';
+        elements.memoCategoryInput.innerHTML = (plannerData.settings.memoCategories || []).map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        elements.memoCategoryInput.value = (plannerData.settings.memoCategories && plannerData.settings.memoCategories.length > 0) ? plannerData.settings.memoCategories[0] : '';
+        elements.memoTitleInput.value = '';
+        elements.memoEditorModal.classList.remove('hidden');
+    });
+
+    elements.closeMemoModalBtn.addEventListener('click', () => {
+        elements.memoEditorModal.classList.add('hidden');
+    });
+
+    elements.saveMemoBtn.addEventListener('click', () => {
+        const title = elements.memoTitleInput.value.trim();
+        const category = elements.memoCategoryInput.value;
+        if (!title) return alert('Please enter a card title.');
+
+        if (editingCardId) {
+            const memo = plannerData.memos.find(m => m.id === editingCardId);
+            if (memo) {
+                memo.title = title;
+                memo.category = category;
+            }
+        } else {
+            const newCardId = crypto.randomUUID();
+            plannerData.memos.push({
+                id: newCardId,
+                title: title,
+                category: category,
+                date: new Date().toLocaleDateString(),
+                entries: []
+            });
+            // Automatically prompt for the first entry
+            editingCardId = newCardId;
+            editingEntryId = null;
+            elements.entryModalTitle.innerText = 'Add First Entry';
+            elements.entryContentInput.value = '';
+            elements.entryEditorModal.classList.remove('hidden');
+        }
+
+        saveData();
+        renderMemoView();
+        elements.memoEditorModal.classList.add('hidden');
+    });
+
+    // Entry Modal Listeners
+    elements.closeEntryModal.addEventListener('click', () => {
+        elements.entryEditorModal.classList.add('hidden');
+    });
+
+    elements.saveEntryBtn.addEventListener('click', () => {
+        const content = elements.entryContentInput.value.trim();
+        if (!content) return alert('Please enter entry content.');
+
+        const card = plannerData.memos.find(m => m.id === editingCardId);
+        if (!card) return;
+
+        const now = new Date();
+        const timestamp = ` [${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+
+        if (editingEntryId) {
+            const entry = card.entries.find(e => e.id === editingEntryId);
+            if (entry) {
+                entry.text = content;
+                entry.timestamp = timestamp;
+            }
+        } else {
+            card.entries.push({
+                id: crypto.randomUUID(),
+                text: content,
+                timestamp: timestamp
+            });
+        }
+
+        saveData();
+        renderMemoView();
+        elements.entryEditorModal.classList.add('hidden');
+    });
+
+    elements.memoList.addEventListener('click', (e) => {
+        const target = e.target;
+
+        // Delete Entire Card
+        const deleteCardBtn = target.closest('.btn-memo-delete');
+        if (deleteCardBtn) {
+            e.stopPropagation();
+            const id = deleteCardBtn.dataset.memoId;
+            if (confirm('Delete this entire memo card and all its entries?')) {
+                plannerData.memos = plannerData.memos.filter(m => m.id !== id);
+                saveData();
+                renderMemoView();
+            }
+            return;
+        }
+
+        // Card Settings (Title/Category)
+        const settingsBtn = target.closest('.btn-memo-settings');
+        if (settingsBtn) {
+            const id = settingsBtn.dataset.memoId;
+            const memo = plannerData.memos.find(m => m.id === id);
+            if (memo) {
+                editingCardId = id;
+                elements.memoModalTitle.innerText = 'Edit Memo Card Settings';
+                elements.memoCategoryInput.innerHTML = (plannerData.settings.memoCategories || []).map(cat => `<option value="${cat}">${cat}</option>`).join('');
+                elements.memoTitleInput.value = memo.title || '';
+                elements.memoCategoryInput.value = memo.category;
+                elements.memoEditorModal.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // Add New Entry to Card
+        const addEntryBtn = target.closest('.btn-add-entry');
+        if (addEntryBtn) {
+            editingCardId = addEntryBtn.dataset.memoId;
+            editingEntryId = null;
+            elements.entryModalTitle.innerText = 'Add New Entry';
+            elements.entryContentInput.value = '';
+            elements.entryEditorModal.classList.remove('hidden');
+            return;
+        }
+
+        // Edit Individual Entry
+        const editEntryBtn = target.closest('.btn-entry-edit');
+        if (editEntryBtn) {
+            editingCardId = editEntryBtn.dataset.memoId;
+            editingEntryId = editEntryBtn.dataset.entryId;
+            const card = plannerData.memos.find(m => m.id === editingCardId);
+            const entry = card.entries.find(e => e.id === editingEntryId);
+            if (entry) {
+                elements.entryModalTitle.innerText = 'Edit Entry';
+                elements.entryContentInput.value = entry.text;
+                elements.entryEditorModal.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // Delete Individual Entry
+        const deleteEntryBtn = target.closest('.btn-entry-delete');
+        if (deleteEntryBtn) {
+            const mid = deleteEntryBtn.dataset.memoId;
+            const eid = deleteEntryBtn.dataset.entryId;
+            if (confirm('Delete this entry?')) {
+                const card = plannerData.memos.find(m => m.id === mid);
+                if (card) {
+                    card.entries = card.entries.filter(e => e.id !== eid);
+                    saveData();
+                    renderMemoView();
+                }
+            }
+            return;
+        }
+    });
+
+    elements.memoSearch.addEventListener('input', renderMemoView);
+    elements.memoFilterCategory.addEventListener('change', renderMemoView);
+
+    // Category Management Listeners
+    document.getElementById('add-category-btn')?.addEventListener('click', () => {
+        if (!plannerData.settings.memoCategories) plannerData.settings.memoCategories = [];
+        plannerData.settings.memoCategories.push('New Category');
+        saveData();
+        renderSettingsView();
+    });
+
+    document.getElementById('category-manager-container')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-delete-category')) {
+            const idx = parseInt(e.target.closest('.category-item').dataset.idx);
+            const catName = plannerData.settings.memoCategories[idx];
+            if (confirm(`Delete category "${catName}"?`)) {
+                plannerData.settings.memoCategories.splice(idx, 1);
+                saveData();
+                renderSettingsView();
+            }
+        }
+    });
+
+    document.getElementById('category-manager-container')?.addEventListener('change', (e) => {
+        if (e.target.classList.contains('category-name-input')) {
+            const idx = parseInt(e.target.closest('.category-item').dataset.idx);
+            plannerData.settings.memoCategories[idx] = e.target.value.trim();
+            saveData();
+        }
+    });
 
     init();
 });

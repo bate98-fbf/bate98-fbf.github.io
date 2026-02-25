@@ -11,13 +11,16 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;700&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body>
     <div class="app-layout">
         <header class="app-header">
             <div class="logo-container">
-                <h1 id="logo">PLANNER</h1>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <h1 id="logo">PLANNER</h1>
+                </div>
                 <p id="view-indicator" class="tagline">Daily Report</p>
             </div>
             <div class="header-main">
@@ -32,7 +35,8 @@
                     <li data-view="month">Month</li>
                     <li data-view="week">Week</li>
                     <li data-view="day" class="active">Day</li>
-                    <li data-view="focus">Focus</li>
+                    <li data-view="focus">추진사항</li>
+                    <li data-view="memo">Memo</li>
                     <li data-view="settings">Settings</li>
                 </ul>
                 <div class="header-actions">
@@ -59,47 +63,41 @@
                 <section id="month-view" class="planner-view hidden"></section>
                 <section id="week-view" class="planner-view hidden"></section>
                 <section id="day-view" class="planner-view">
-                    <div class="day-navigation">
-                        <button id="day-prev-btn" class="btn-icon">←</button>
-                        <button id="day-today-btn" class="btn-secondary">Today</button>
-                        <button id="day-next-btn" class="btn-icon">→</button>
-                    </div>
-                    <div class="day-layout">
-                        <section class="planner-section timeline-card">
+                    <div class="day-layout task-centric-layout">
+                        <!-- Main Content Area: Task Board -->
+                        <section class="planner-section task-board-card">
                             <div class="card-header">
-                                <h2>Time Log</h2>
-                                <div class="header-btns">
-                                    <button id="copy-plan-btn" class="btn-text" title="Copy today's Plan column">Copy
-                                        Plan</button>
-                                    <button id="paste-plan-btn" class="btn-text"
-                                        title="Paste copied Plan to today">Paste Plan</button>
+                                <h2>Daily Task Board</h2>
+                            </div>
+
+                            <div class="day-action-row">
+                                <div id="day-progress-dashboard" class="progress-dashboard">
+                                    <div class="progress-info">
+                                        <span class="progress-label">Today's Progress</span>
+                                        <span id="day-progress-percentage" class="progress-percentage">0%</span>
+                                    </div>
+                                    <div class="progress-bar-container">
+                                        <div id="day-progress-bar" class="progress-bar"></div>
+                                    </div>
+                                    <div class="progress-stats">
+                                        <span id="day-task-counts">0 / 0 tasks completed</span>
+                                    </div>
+                                </div>
+
+                                <div class="task-board-input-group">
+                                    <input type="text" id="main-day-todo-input"
+                                        placeholder="What needs to be done today?">
+                                    <button id="add-main-day-todo-btn" class="btn-primary">Add Task</button>
                                 </div>
                             </div>
-                            <div id="timeline-container" class="timeline-container"></div>
+
+                            <div id="unified-task-list" class="unified-task-list">
+                                <!-- Integrated task items (Daily, Weekly, Focus) will be rendered here -->
+                            </div>
                         </section>
+
+                        <!-- Sidebar Area: Goals and Review -->
                         <aside class="side-sections">
-                            <section class="planner-section review-card">
-                                <div class="card-header">
-                                    <h2>Today's Checklist</h2>
-                                </div>
-                                <div class="todo-list-container">
-                                    <div class="todo-list-input-group">
-                                        <input type="text" id="day-todo-input" placeholder="Add a quick to-do...">
-                                        <button id="add-day-todo-btn" class="btn-icon"
-                                            style="width:32px; height:32px;">+</button>
-                                    </div>
-                                    <div id="day-todo-list" class="todo-list-items">
-                                        <!-- Populated by JS -->
-                                    </div>
-                                </div>
-                            </section>
-                            <section class="planner-section review-card">
-                                <div class="card-header">
-                                    <h2>Daily Goals</h2>
-                                </div>
-                                <textarea id="daily-goals" data-field="goals"
-                                    placeholder="What are your objectives for today?"></textarea>
-                            </section>
                             <section class="planner-section review-card">
                                 <div class="card-header">
                                     <h2>Upcoming Plans</h2>
@@ -108,17 +106,28 @@
                                     <!-- Populated by JS -->
                                 </div>
                             </section>
+
                             <section class="planner-section review-card">
                                 <div class="card-header">
-                                    <h2>Reflection</h2>
+                                    <h2>Daily Goals</h2>
+                                </div>
+                                <textarea id="daily-goals" data-field="goals"
+                                    placeholder="What are your objectives for today?"></textarea>
+                            </section>
+
+                            <section class="planner-section review-card">
+                                <div class="card-header">
+                                    <h2>Reflection & Better</h2>
                                 </div>
                                 <div class="reflection-group">
                                     <label>What went well?</label>
-                                    <textarea id="reflection-good" data-field="reflectionGood"></textarea>
+                                    <textarea id="reflection-good" data-field="reflectionGood"
+                                        placeholder="What went well?"></textarea>
                                 </div>
                                 <div class="reflection-group">
                                     <label>What could be better?</label>
-                                    <textarea id="reflection-better" data-field="reflectionBetter"></textarea>
+                                    <textarea id="reflection-better" data-field="reflectionBetter"
+                                        placeholder="What could be improved?"></textarea>
                                 </div>
                             </section>
                         </aside>
@@ -128,7 +137,7 @@
                     <div class="focus-layout">
                         <header class="view-header">
                             <div class="header-content">
-                                <h2>중점추진업무 (Core Focus Tasks)</h2>
+                                <h2>중점 추진 사항 (Core Focus Tasks)</h2>
                                 <p class="tagline">Manage your high-level strategic priorities</p>
                             </div>
                             <div class="header-actions">
@@ -142,7 +151,13 @@
                         </header>
                         <div class="focus-table-container">
                             <div class="focus-table-header">
-                                <div class="col-title">Task / Title</div>
+                                <div class="col-title">
+                                    <span style="width: 20px; display: inline-block;"></span>
+                                    <!-- Toggle spacer (matches button width) -->
+                                    <span style="width: 24px; display: inline-block;"></span>
+                                    <!-- Checkbox spacer (16px + 8px gap) -->
+                                    Task / Title
+                                </div>
                                 <div class="col-owner">Owner</div>
                                 <div class="col-due">Due Date</div>
                                 <div class="col-status">Status</div>
@@ -154,6 +169,72 @@
                         </div>
                     </div>
                 </section>
+
+                <section id="memo-view" class="planner-view hidden">
+                    <div class="memo-layout">
+                        <header class="view-header">
+                            <div class="header-content">
+                                <h2>Work Memo</h2>
+                                <p class="tagline">Organize and search your professional thoughts by category</p>
+                            </div>
+                            <div class="header-actions">
+                                <button id="add-memo-btn" class="btn-primary">+ New Memo</button>
+                            </div>
+                        </header>
+                        <div class="memo-controls">
+                            <div class="search-box">
+                                <input type="text" id="memo-search" placeholder="Search memos...">
+                            </div>
+                            <div class="category-filter">
+                                <select id="memo-filter-category">
+                                    <option value="all">All Categories</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                        </div>
+                        <div id="memo-list" class="memo-grid">
+                            <!-- Memo cards will be rendered here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Memo Card Modal (Card Metadata) -->
+                <div id="memo-editor-modal" class="modal hidden">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <h3 id="memo-modal-title">Memo Card Settings</h3>
+                        <div class="input-group">
+                            <label>Title</label>
+                            <input type="text" id="memo-title-input" placeholder="Enter memo title..."
+                                style="width: 100%;">
+                        </div>
+                        <div class="input-group">
+                            <label>Category</label>
+                            <select id="memo-category-input" class="priority-select" style="width: 100%;">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="save-memo-btn" class="btn-primary">Save Card Settings</button>
+                            <button id="close-memo-modal" class="btn-text">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Entry Editor Modal -->
+                <div id="entry-editor-modal" class="modal hidden">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <h3 id="entry-modal-title">New Entry</h3>
+                        <div class="input-group">
+                            <label>Content</label>
+                            <textarea id="entry-content-input" placeholder="Enter entry content here..."
+                                style="min-height: 150px;"></textarea>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="save-entry-btn" class="btn-primary">Save Entry</button>
+                            <button id="close-entry-modal" class="btn-text">Cancel</button>
+                        </div>
+                    </div>
+                </div>
                 <section id="settings-view" class="planner-view hidden">
                     <div class="settings-layout">
                         <header class="view-header">
@@ -209,12 +290,19 @@
                                     </div>
                                 </div>
                             </section>
-                </section>
+                            <section class="planner-section settings-card">
+                                <div class="card-header">
+                                    <h2>Memo Category Management</h2>
+                                    <button id="add-category-btn" class="btn-text">+ Add Category</button>
+                                </div>
+                                <div class="settings-body">
+                                    <div id="category-manager-container" class="category-manager-list">
+                                        <!-- Populated via JS -->
+                                    </div>
+                                </div>
+                            </section>
+            </main>
         </div>
-    </div>
-    </section>
-    </main>
-    </div>
     </div>
     <div id="holiday-editor-modal" class="modal hidden">
         <div class="modal-content">
@@ -263,6 +351,17 @@
             </div>
         </div>
     </div>
+    <div id="task-memo-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="task-memo-modal-title">Task Memo</h3>
+            <textarea id="task-memo-input" placeholder="Enter detailed notes for this task..."></textarea>
+            <div class="modal-actions">
+                <button id="save-task-memo-btn" class="btn-primary">Save Memo</button>
+                <button id="close-task-memo-modal" class="btn-text">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <input type="date" id="move-item-date-picker" style="position: absolute; opacity: 0; pointer-events: none;">
     <script src="app.js"></script>
 </body>
 
