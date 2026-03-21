@@ -548,6 +548,18 @@ tr.row-reading:hover td{background:#fef3c7}
           ③ 위 입력란에 토큰·사용자명·저장소명 입력 후 <strong>설정 저장</strong> → <strong>연결 테스트</strong>로 확인<br>
           <span style="margin-top:4px;display:block;color:#1e40af">⚠️ Fine-grained token은 해당 저장소의 <strong>Contents: Read and write</strong> 권한 필요</span>
         </div>
+
+        <div style="border-top:1px solid var(--border);margin:20px 0"></div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">🌐 URL로 복원 (GitHub Pages / 공개 URL)</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+          토큰 없이 공개 URL(GitHub Pages 등)에서 백업 파일을 바로 복원합니다.<br>
+          GitHub Pages가 설정된 경우 아래 버튼으로 URL을 자동 입력할 수 있습니다.
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <input type="text" class="form-control" id="restore-url-input" placeholder="https://username.github.io/repo/bookshelf_backup.json" style="flex:1;min-width:240px">
+          <button class="btn btn-secondary btn-sm" style="white-space:nowrap" onclick="fillGithubPagesUrl()">📋 GitHub Pages URL 자동 입력</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="restoreFromUrl()">⬇️ URL에서 복원</button>
       </div>
 
       <!-- 저장 방식 안내 -->
@@ -1465,6 +1477,38 @@ async function syncToGitHub() {
     }
   } catch(e) {
     showGithubError('네트워크 오류: '+e.message); showToast('❌ 네트워크 오류');
+  }
+}
+
+function fillGithubPagesUrl() {
+  const s=loadGithubSettings();
+  if(!s.owner||!s.repo) { showToast('⚠️ 설정에서 사용자명과 저장소명을 먼저 입력·저장하세요.'); return; }
+  const path=s.path||'bookshelf_backup.json';
+  const url=`https://${s.owner}.github.io/${s.repo}/${path}`;
+  const el=document.getElementById('restore-url-input');
+  if(el) { el.value=url; showToast('📋 GitHub Pages URL이 입력되었습니다.'); }
+}
+
+async function restoreFromUrl() {
+  const url=(document.getElementById('restore-url-input')?.value||'').trim();
+  if(!url) { showToast('⚠️ 복원할 URL을 입력해주세요.'); return; }
+  showToast('⏳ URL에서 데이터를 가져오는 중...');
+  try {
+    const r=await fetch(url);
+    if(!r.ok) {
+      const msg=r.status===404?'파일을 찾을 수 없습니다 (404). URL을 확인하세요.':r.status===403?'접근이 거부되었습니다 (403). 저장소가 공개인지 확인하세요.':`HTTP ${r.status} 오류`;
+      showToast('❌ '+msg); return;
+    }
+    const data=await r.json();
+    const books=Array.isArray(data)?data:(data.books&&Array.isArray(data.books)?data.books:null);
+    if(!books||!books.length) { showToast('❌ 올바른 백업 형식이 아닙니다.'); return; }
+    if(!confirm(`${books.length}권의 데이터를 복원하시겠습니까?\n현재 데이터(${state.books.length}권)가 교체됩니다.`)) return;
+    state.books=books;
+    saveBooks();
+    showToast(`✅ ${books.length}권이 복원되었습니다.`);
+    setTimeout(()=>location.reload(),1500);
+  } catch(e) {
+    showToast('❌ 복원 실패: CORS 오류이거나 URL이 잘못되었습니다.');
   }
 }
 
