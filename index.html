@@ -63,7 +63,12 @@ svg{fill:currentColor;display:block;flex-shrink:0}
 .btn-topbar-primary{background:var(--primary);color:#fff}.btn-topbar-primary:hover{background:var(--primary-light)}
 .btn-topbar-outline{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}.btn-topbar-outline:hover{background:var(--bg);border-color:var(--border-hover)}
 .btn-topbar-icon{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}.btn-topbar-icon:hover{background:var(--bg);border-color:var(--border-hover);color:var(--text)}
+.btn-topbar-github{background:transparent;color:#24292f;border:1px solid var(--border)}.btn-topbar-github:hover{background:#24292f;color:#fff;border-color:#24292f}
 .topbar-divider{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.github-status-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;font-weight:500}
+.github-status-bar.connected{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
+.github-status-bar.error{background:var(--danger-light);color:var(--danger);border:1px solid #fca5a5}
+.github-status-bar.syncing{background:var(--blue-light);color:var(--blue);border:1px solid #bfdbfe}
 .btn-topbar svg{width:16px;height:16px}
 
 /* Views */
@@ -181,6 +186,18 @@ tr.row-reading:hover td{background:#fef3c7}
 .empty-icon{font-size:48px;margin-bottom:12px}
 .empty-state h3{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px}
 .empty-state p{color:var(--text-muted);font-size:13px}
+
+/* Snapshot */
+.snapshot-save-row{display:flex;gap:8px;margin-bottom:20px}
+.snapshot-list{display:flex;flex-direction:column;gap:8px}
+.snapshot-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);transition:border-color var(--tr)}
+.snapshot-item:hover{border-color:var(--border-hover)}
+.snapshot-info{flex:1;min-width:0}
+.snapshot-name{font-weight:600;font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.snapshot-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
+.snapshot-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text-secondary)}
+.snapshot-actions{display:flex;gap:6px;flex-shrink:0}
+.snapshot-empty{text-align:center;padding:24px;color:var(--text-muted);font-size:13px;background:var(--surface2);border-radius:var(--radius-sm);border:1px dashed var(--border)}
 
 /* Settings */
 .settings-section{background:var(--surface);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:20px}
@@ -301,13 +318,21 @@ tr.row-reading:hover td{background:#fef3c7}
     </button>
     <div class="topbar-title" id="topbarTitle">대시보드</div>
     <div class="topbar-actions">
-      <button class="btn-topbar btn-topbar-icon" id="restoreTopBtn" title="데이터 복원" onclick="document.getElementById('restoreInputTop').click()">
+      <button class="btn-topbar btn-topbar-icon" id="saveStateTopBtn" title="현재 상태 저장" onclick="quickSaveSnapshot()">
+        <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+        <span>저장</span>
+      </button>
+      <button class="btn-topbar btn-topbar-icon" id="restoreTopBtn" title="JSON 파일 복원" onclick="document.getElementById('restoreInputTop').click()">
         <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
         <span>복원</span>
       </button>
       <button class="btn-topbar btn-topbar-icon" id="backupTopBtn" title="데이터 백업" onclick="backupData()">
         <svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
         <span>백업</span>
+      </button>
+      <button class="btn-topbar btn-topbar-github" id="githubSyncTopBtn" title="GitHub 동기화" onclick="syncToGitHub()">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.34-3.369-1.34-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        <span>GitHub</span>
       </button>
       <div class="topbar-divider"></div>
       <button class="btn-topbar btn-topbar-primary" id="addBookBtnTop">
@@ -429,6 +454,20 @@ tr.row-reading:hover td{background:#fef3c7}
         </div>
       </div>
 
+      <!-- 현재 상태 저장 -->
+      <div class="settings-section">
+        <div class="settings-section-title">💾 현재 상태 저장</div>
+        <div class="settings-section-desc">지금 이 순간의 데이터를 저장해두고 언제든 복원할 수 있습니다. 최대 10개까지 보관됩니다.</div>
+        <div class="snapshot-save-row">
+          <input type="text" class="genre-edit-input" id="snapshot-name-input" placeholder="저장 이름 (비워두면 날짜·시간으로 자동 설정)" maxlength="30">
+          <button class="btn btn-primary btn-sm" onclick="saveSnapshotFromInput()" style="white-space:nowrap">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+            저장
+          </button>
+        </div>
+        <div id="snapshot-list" class="snapshot-list"></div>
+      </div>
+
       <!-- 백업 / 복원 -->
       <div class="settings-section">
         <div class="settings-section-title">💾 데이터 백업 / 복원</div>
@@ -438,6 +477,7 @@ tr.row-reading:hover td{background:#fef3c7}
         <div class="backup-folder-row">
           <div class="backup-folder-display" id="backup-folder-display">선택된 폴더 없음 — 브라우저 기본 다운로드 폴더에 저장됩니다</div>
           <button class="btn btn-secondary btn-sm" onclick="selectBackupFolder()">📁 폴더 선택</button>
+          <button class="btn btn-secondary btn-sm" onclick="removeFolderSelection()" title="폴더 지정 해제" style="color:var(--danger);border-color:var(--danger)">✕</button>
         </div>
         <div class="info-box" style="margin-bottom:16px">
           <strong>💡 폴더 선택 안내:</strong> 크롬/엣지 브라우저에서 파일 시스템 접근을 지원합니다. 선택한 폴더에 백업 파일이 직접 저장됩니다.<br>
@@ -460,6 +500,54 @@ tr.row-reading:hover td{background:#fef3c7}
         </div>
         <input type="file" id="restoreInput" style="display:none" accept=".json" onchange="restoreData(event)">
         <div style="font-size:12px;color:var(--text-muted);margin-top:10px" id="backup-info"></div>
+      </div>
+
+      <!-- GitHub 동기화 -->
+      <div class="settings-section">
+        <div class="settings-section-title">🐙 GitHub 동기화</div>
+        <div class="settings-section-desc">GitHub 저장소에 백업 파일을 업로드하거나 복원합니다. Personal Access Token을 발급해 설정하세요.</div>
+
+        <div class="github-status-bar" id="github-status-bar" style="display:none">
+          <span id="github-status-text"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Personal Access Token</label>
+          <div style="display:flex;gap:8px">
+            <input type="password" class="form-control" id="github-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <button type="button" class="btn btn-secondary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="(()=>{const i=document.getElementById('github-token');i.type=i.type==='password'?'text':'password'})()">👁 보기</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">GitHub 사용자명</label>
+            <input type="text" class="form-control" id="github-owner" placeholder="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label">저장소명</label>
+            <input type="text" class="form-control" id="github-repo" placeholder="bookshelf-backup">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">파일 경로</label>
+          <input type="text" class="form-control" id="github-path" placeholder="bookshelf_backup.json">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">저장소 내 경로. 예) data/bookshelf_backup.json</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn btn-primary btn-sm" onclick="saveGithubSettings()">💾 설정 저장</button>
+          <button class="btn btn-secondary btn-sm" onclick="testGithubConnection()">🔍 연결 테스트</button>
+          <button class="btn btn-secondary btn-sm" id="btn-github-sync" onclick="syncToGitHub()">🐙 GitHub에 업로드</button>
+          <button class="btn btn-secondary btn-sm" id="btn-github-restore" onclick="restoreFromGitHub()">⬇️ GitHub에서 복원</button>
+        </div>
+        <div id="github-detail-error" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius-sm);font-size:12px;color:#b91c1c;line-height:1.7;font-family:monospace;white-space:pre-wrap;word-break:break-all"></div>
+        <div class="info-box">
+          <strong>💡 설정 방법 (3단계):</strong><br>
+          ① GitHub에서 빈 저장소 생성 (예: <strong>bookshelf-backup</strong>)<br>
+          ② <strong>Settings → Developer settings → Personal access tokens → Tokens (classic)</strong><br>
+          &nbsp;&nbsp;&nbsp;→ Generate new token → <strong>repo</strong> 권한 체크 → 토큰 복사<br>
+          ③ 위 입력란에 토큰·사용자명·저장소명 입력 후 <strong>설정 저장</strong> → <strong>연결 테스트</strong>로 확인<br>
+          <span style="margin-top:4px;display:block;color:#1e40af">⚠️ Fine-grained token은 해당 저장소의 <strong>Contents: Read and write</strong> 권한 필요</span>
+        </div>
       </div>
 
       <!-- 저장 방식 안내 -->
@@ -1035,12 +1123,15 @@ function renderSettings() {
   renderGenreList();
   const info=document.getElementById('backup-info');
   if(info) info.textContent=`현재 ${state.books.length}권의 도서 데이터가 저장되어 있습니다.`;
-  // Update folder display
-  if(state.directoryHandle) {
-    document.getElementById('backup-folder-display').textContent=state.directoryHandle.name;
-  }
-  // Populate genre select in book form
+  updateFolderDisplay(state.directoryHandle?.name||'');
   populateGenreSelect();
+  renderSnapshotList();
+  populateGithubForm();
+  const syncTime=localStorage.getItem('bookshelf_github_synced');
+  if(syncTime) {
+    const s=loadGithubSettings();
+    if(s.token) setGithubStatus('connected',`✅ 마지막 업로드: ${syncTime}`);
+  }
 }
 
 function renderGenreList() {
@@ -1121,19 +1212,378 @@ function populateGenreSelect() {
   sel.innerHTML=state.genres.map(g=>`<option value="${esc(g)}"${g===cur?' selected':''}>${esc(g)}</option>`).join('');
 }
 
+/* ===================== Snapshot ===================== */
+const SNAPSHOT_KEY = 'bookshelf_snapshots_v1';
+const MAX_SNAPSHOTS = 10;
+
+function loadSnapshots() {
+  try { return JSON.parse(localStorage.getItem(SNAPSHOT_KEY)||'[]'); } catch(e) { return []; }
+}
+function persistSnapshots(snaps) { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snaps)); }
+
+function createSnapshot(customName) {
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const dateStr=now.getFullYear()+'.'+pad(now.getMonth()+1)+'.'+pad(now.getDate());
+  const timeStr=pad(now.getHours())+':'+pad(now.getMinutes());
+  const snap={
+    id: now.getTime(),
+    name: customName||(dateStr+' '+timeStr),
+    date: dateStr, time: timeStr,
+    bookCount: state.books.length,
+    completedCount: state.books.filter(b=>b.completed).length,
+    readingCount: state.books.filter(b=>b.reading&&!b.completed).length,
+    data: {books: JSON.parse(JSON.stringify(state.books)), genres:[...state.genres]}
+  };
+  let snaps=loadSnapshots();
+  snaps.unshift(snap);
+  if(snaps.length>MAX_SNAPSHOTS) snaps=snaps.slice(0,MAX_SNAPSHOTS);
+  persistSnapshots(snaps);
+  return snap;
+}
+
+function saveSnapshotFromInput() {
+  const input=document.getElementById('snapshot-name-input');
+  const name=(input?.value||'').trim();
+  const snap=createSnapshot(name);
+  if(input) input.value='';
+  showToast(`💾 저장되었습니다: ${snap.name}`);
+  renderSnapshotList();
+}
+
+function quickSaveSnapshot() {
+  const snap=createSnapshot();
+  showToast(`💾 현재 상태 저장 완료 (${snap.name})`);
+  if(state.currentView==='settings') renderSnapshotList();
+}
+
+function restoreSnapshot(id) {
+  const snap=loadSnapshots().find(s=>s.id===id);
+  if(!snap) return;
+  if(!confirm(`"${snap.name}" 시점으로 복원하시겠습니까?\n현재 데이터(${state.books.length}권)가 교체됩니다.`)) return;
+  state.books=snap.data.books;
+  state.genres=snap.data.genres||[...DEFAULT_GENRES];
+  saveBooks(); saveGenres();
+  showToast(`✅ "${snap.name}" 시점으로 복원되었습니다.`);
+  setTimeout(()=>location.reload(),1500);
+}
+
+function deleteSnapshot(id) {
+  persistSnapshots(loadSnapshots().filter(s=>s.id!==id));
+  renderSnapshotList();
+  showToast('스냅샷이 삭제되었습니다.');
+}
+
+function renderSnapshotList() {
+  const el=document.getElementById('snapshot-list');
+  if(!el) return;
+  const snaps=loadSnapshots();
+  const remain=MAX_SNAPSHOTS-snaps.length;
+  if(!snaps.length) {
+    el.innerHTML='<div class="snapshot-empty">저장된 상태가 없습니다.<br>상단 버튼으로 현재 상태를 저장해보세요.</div>';
+    return;
+  }
+  el.innerHTML=snaps.map(s=>`
+    <div class="snapshot-item">
+      <div class="snapshot-info">
+        <div class="snapshot-name">💾 ${esc(s.name)}</div>
+        <div class="snapshot-meta">
+          ${esc(s.date)} ${esc(s.time||'')} &nbsp;
+          <span class="snapshot-badge">📚 ${s.bookCount}권</span> &nbsp;
+          <span class="snapshot-badge" style="background:var(--green-light);color:var(--green);border-color:#bbf7d0">✅ ${s.completedCount}</span>
+          ${s.readingCount?`&nbsp;<span class="snapshot-badge" style="background:var(--reading-bg);color:var(--reading-color);border-color:#fde68a">📖 ${s.readingCount}</span>`:''}
+        </div>
+      </div>
+      <div class="snapshot-actions">
+        <button class="btn btn-secondary btn-sm" onclick="restoreSnapshot(${s.id})">↩ 복원</button>
+        <button class="btn btn-sm" onclick="deleteSnapshot(${s.id})" style="color:var(--danger);border:1px solid var(--border);border-radius:var(--radius-xs);padding:5px 10px;font-size:12px;font-weight:600;background:var(--bg);transition:all var(--tr)" onmouseover="this.style.background='var(--danger)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg)';this.style.color='var(--danger)'">🗑</button>
+      </div>
+    </div>`).join('')+`<div style="font-size:12px;color:var(--text-muted);margin-top:10px;text-align:right">${snaps.length}/${MAX_SNAPSHOTS}개 사용 중${remain>0?` — ${remain}개 추가 가능`:'  (가득 참 — 가장 오래된 항목이 자동 삭제됩니다)'}</div>`;
+}
+
+/* ===================== GitHub Sync ===================== */
+const GITHUB_KEY = 'bookshelf_github_v1';
+
+function loadGithubSettings() {
+  try { return JSON.parse(localStorage.getItem(GITHUB_KEY)||'{}'); } catch(e) { return {}; }
+}
+
+function saveGithubSettings() {
+  const s={
+    token: document.getElementById('github-token')?.value.trim()||'',
+    owner: document.getElementById('github-owner')?.value.trim()||'',
+    repo:  document.getElementById('github-repo')?.value.trim()||'',
+    path:  document.getElementById('github-path')?.value.trim()||'bookshelf_backup.json',
+  };
+  if(!s.token||!s.owner||!s.repo){ showToast('⚠️ 토큰, 사용자명, 저장소명을 모두 입력해주세요.'); return; }
+  localStorage.setItem(GITHUB_KEY, JSON.stringify(s));
+  showToast('✅ GitHub 설정이 저장되었습니다.');
+  setGithubStatus('connected','🐙 GitHub 연동 완료: '+s.owner+'/'+s.repo);
+}
+
+function setGithubStatus(type, msg) {
+  const bar=document.getElementById('github-status-bar');
+  const txt=document.getElementById('github-status-text');
+  if(!bar||!txt) return;
+  bar.style.display='flex';
+  bar.className='github-status-bar '+type;
+  txt.textContent=msg;
+}
+
+function populateGithubForm() {
+  const s=loadGithubSettings();
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+  set('github-token', s.token);
+  set('github-owner', s.owner);
+  set('github-repo',  s.repo);
+  set('github-path',  s.path||'bookshelf_backup.json');
+  if(s.token&&s.owner&&s.repo) setGithubStatus('connected','🐙 연동됨: '+s.owner+'/'+s.repo);
+}
+
+function makeBackupJson() {
+  return JSON.stringify({version:'1.0',exportDate:new Date().toISOString(),totalBooks:state.books.length,books:state.books},null,2);
+}
+
+function jsonToBase64(str) {
+  const bytes=new TextEncoder().encode(str);
+  let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin);
+}
+
+function base64ToJson(b64) {
+  const bin=atob(b64.replace(/\n/g,''));
+  const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function githubHeaders(token) {
+  return {'Authorization':'Bearer '+token,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
+}
+
+function showGithubError(msg) {
+  const el=document.getElementById('github-detail-error');
+  if(el){ el.style.display='block'; el.textContent=msg; }
+  setGithubStatus('error','❌ '+msg.split('\n')[0]);
+}
+function hideGithubError() {
+  const el=document.getElementById('github-detail-error');
+  if(el) el.style.display='none';
+}
+
+async function githubApiErrorMsg(resp) {
+  try {
+    const d=await resp.json();
+    const parts=[`HTTP ${resp.status} ${resp.statusText}`];
+    if(d.message) parts.push(`메시지: ${d.message}`);
+    if(d.errors) parts.push(`상세: ${JSON.stringify(d.errors)}`);
+    if(resp.status===401) parts.push('→ 토큰이 잘못되었거나 만료되었습니다. 새 토큰을 발급하세요.');
+    if(resp.status===403) parts.push('→ 권한 부족. 토큰에 repo 또는 Contents:write 권한을 확인하세요.');
+    if(resp.status===404) parts.push('→ 저장소를 찾을 수 없습니다. 사용자명/저장소명을 확인하세요.');
+    if(resp.status===422) parts.push('→ 요청 형식 오류. SHA 값이 맞지 않을 수 있습니다.');
+    return parts.join('\n');
+  } catch(e) { return `HTTP ${resp.status} ${resp.statusText}`; }
+}
+
+async function testGithubConnection() {
+  const s=loadGithubSettings();
+  if(!s.token||!s.owner||!s.repo){ showToast('⚠️ 토큰, 사용자명, 저장소명을 먼저 입력하고 저장하세요.'); return; }
+  hideGithubError();
+  setGithubStatus('syncing','🔍 연결 테스트 중...');
+
+  // 1) 토큰 유효성
+  try {
+    const r=await fetch('https://api.github.com/user',{headers:githubHeaders(s.token)});
+    if(!r.ok) {
+      showGithubError(await githubApiErrorMsg(r));
+      showToast('❌ 토큰 인증 실패'); return;
+    }
+    const u=await r.json();
+    if(u.login?.toLowerCase()!==s.owner.toLowerCase()) {
+      showGithubError(`토큰 사용자(${u.login})와 입력한 사용자명(${s.owner})이 다릅니다.`);
+      showToast('❌ 사용자명 불일치'); return;
+    }
+  } catch(e) { showGithubError('네트워크 오류: '+e.message); showToast('❌ 네트워크 오류'); return; }
+
+  // 2) 저장소 접근
+  try {
+    const r=await fetch(`https://api.github.com/repos/${s.owner}/${s.repo}`,{headers:githubHeaders(s.token)});
+    if(!r.ok) {
+      showGithubError(await githubApiErrorMsg(r));
+      showToast('❌ 저장소 접근 실패'); return;
+    }
+    const repo=await r.json();
+    hideGithubError();
+    setGithubStatus('connected',`✅ 연결 성공: ${repo.full_name} (${repo.private?'비공개':'공개'})`);
+    showToast(`✅ 연결 성공! ${repo.full_name}`);
+  } catch(e) { showGithubError('네트워크 오류: '+e.message); showToast('❌ 네트워크 오류'); }
+}
+
+async function syncToGitHub() {
+  const s=loadGithubSettings();
+  if(!s.token||!s.owner||!s.repo){ showToast('⚠️ 설정에서 GitHub 토큰을 먼저 입력해주세요.'); switchView('settings'); return; }
+  const path=s.path||'bookshelf_backup.json';
+  const apiUrl=`https://api.github.com/repos/${s.owner}/${s.repo}/contents/${path}`;
+  const headers=githubHeaders(s.token);
+
+  hideGithubError();
+  setGithubStatus('syncing','⏳ GitHub에 업로드 중...');
+  showToast('⏳ GitHub에 업로드 중...');
+
+  // 기존 파일 SHA 조회
+  let sha='';
+  try {
+    const r=await fetch(apiUrl,{headers});
+    if(r.ok) {
+      const d=await r.json();
+      sha=d.sha||'';
+    } else if(r.status===404||r.status===409) {
+      // 404: 파일 없음(첫 업로드), 409: 저장소가 비어있음(커밋 없음) → sha 없이 진행
+      sha='';
+    } else {
+      const msg=await githubApiErrorMsg(r);
+      showGithubError('SHA 조회 실패\n'+msg); showToast('❌ 업로드 실패'); return;
+    }
+  } catch(e) { showGithubError('네트워크 오류: '+e.message); showToast('❌ 네트워크 오류'); return; }
+
+  const body=JSON.stringify({
+    message:`📚 독서 데이터 백업 ${new Date().toLocaleDateString('ko-KR')} (${state.books.length}권)`,
+    content:jsonToBase64(makeBackupJson()),
+    ...(sha?{sha}:{})
+  });
+
+  try {
+    const r=await fetch(apiUrl,{method:'PUT',headers,body});
+    if(r.ok) {
+      const syncTime=new Date().toLocaleString('ko-KR');
+      localStorage.setItem('bookshelf_github_synced',syncTime);
+      hideGithubError();
+      setGithubStatus('connected',`✅ 업로드 완료: ${syncTime}`);
+      showToast('🐙 GitHub 업로드 완료!');
+    } else {
+      const msg=await githubApiErrorMsg(r);
+      showGithubError(msg); showToast('❌ GitHub 업로드 실패');
+    }
+  } catch(e) {
+    showGithubError('네트워크 오류: '+e.message); showToast('❌ 네트워크 오류');
+  }
+}
+
+async function restoreFromGitHub() {
+  const s=loadGithubSettings();
+  if(!s.token||!s.owner||!s.repo){ showToast('⚠️ 설정에서 GitHub 토큰을 먼저 입력해주세요.'); switchView('settings'); return; }
+  const path=s.path||'bookshelf_backup.json';
+  const apiUrl=`https://api.github.com/repos/${s.owner}/${s.repo}/contents/${path}`;
+
+  hideGithubError();
+  showToast('⏳ GitHub에서 데이터를 가져오는 중...');
+  try {
+    const r=await fetch(apiUrl,{headers:githubHeaders(s.token)});
+    if(!r.ok) {
+      const msg=await githubApiErrorMsg(r);
+      showGithubError(msg); showToast('❌ 파일을 가져올 수 없습니다.'); return;
+    }
+    const d=await r.json();
+    const json=base64ToJson(d.content);
+    const data=JSON.parse(json);
+    const books=Array.isArray(data)?data:(data.books&&Array.isArray(data.books)?data.books:null);
+    if(!books?.length){ showToast('❌ 올바른 백업 형식이 아닙니다.'); return; }
+    if(!confirm(`GitHub에서 ${books.length}권의 데이터를 복원하시겠습니까?\n현재 데이터(${state.books.length}권)가 교체됩니다.`)) return;
+    state.books=books; saveBooks();
+    showToast(`✅ ${books.length}권이 GitHub에서 복원되었습니다.`);
+    setTimeout(()=>location.reload(),1500);
+  } catch(e) {
+    showGithubError('복원 실패: '+e.message); showToast('❌ 복원 실패');
+  }
+}
+
 /* ===================== Backup ===================== */
+/* ---------- IndexedDB: 폴더 핸들 영구 저장 ---------- */
+const IDB_NAME='bookshelf_idb', IDB_STORE='handles', IDB_KEY='backupFolder';
+
+function openIDB() {
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(IDB_NAME,1);
+    r.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
+    r.onsuccess=e=>res(e.target.result);
+    r.onerror=e=>rej(e.target.error);
+  });
+}
+
+async function saveHandleToIDB(handle) {
+  try {
+    const db=await openIDB();
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put(handle,IDB_KEY);
+    await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=rej;});
+  } catch(e) {}
+}
+
+async function loadHandleFromIDB() {
+  try {
+    const db=await openIDB();
+    return await new Promise((res,rej)=>{
+      const tx=db.transaction(IDB_STORE,'readonly');
+      const r=tx.objectStore(IDB_STORE).get(IDB_KEY);
+      r.onsuccess=()=>res(r.result);
+      r.onerror=rej;
+    });
+  } catch(e) { return null; }
+}
+
+async function clearHandleFromIDB() {
+  try {
+    const db=await openIDB();
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).delete(IDB_KEY);
+  } catch(e) {}
+}
+
+async function verifyFolderPermission(handle) {
+  if(!handle) return false;
+  try {
+    const opts={mode:'readwrite'};
+    if(await handle.queryPermission(opts)==='granted') return true;
+    if(await handle.requestPermission(opts)==='granted') return true;
+    return false;
+  } catch(e) { return false; }
+}
+
+function updateFolderDisplay(name) {
+  const el=document.getElementById('backup-folder-display');
+  if(el) el.textContent=name
+    ? `📁 ${name} — 이 폴더에 백업이 저장됩니다`
+    : '선택된 폴더 없음 — 브라우저 기본 다운로드 폴더에 저장됩니다';
+}
+
+async function initDirectoryHandle() {
+  if(!window.showDirectoryPicker) return;
+  const handle=await loadHandleFromIDB();
+  if(!handle) return;
+  state.directoryHandle=handle;
+  updateFolderDisplay(handle.name);
+}
+
 async function selectBackupFolder() {
   if(!window.showDirectoryPicker){
     showToast('이 브라우저는 폴더 선택을 지원하지 않습니다.\n(Chrome/Edge에서 지원)');
     return;
   }
   try {
-    state.directoryHandle=await window.showDirectoryPicker({mode:'readwrite'});
-    document.getElementById('backup-folder-display').textContent=state.directoryHandle.name;
-    showToast('📁 폴더가 선택되었습니다: '+state.directoryHandle.name);
+    const handle=await window.showDirectoryPicker({mode:'readwrite'});
+    state.directoryHandle=handle;
+    await saveHandleToIDB(handle);
+    updateFolderDisplay(handle.name);
+    showToast('📁 폴더가 저장되었습니다: '+handle.name);
   } catch(e) {
     if(e.name!=='AbortError') showToast('폴더 선택 실패: '+e.message);
   }
+}
+
+async function removeFolderSelection() {
+  state.directoryHandle=null;
+  await clearHandleFromIDB();
+  updateFolderDisplay('');
+  showToast('폴더 지정이 해제되었습니다.');
 }
 
 async function backupData() {
@@ -1143,13 +1593,18 @@ async function backupData() {
   const filename=`bookshelf_backup_${dateStr}.json`;
 
   if(state.directoryHandle) {
-    try {
-      const fileHandle=await state.directoryHandle.getFileHandle(filename,{create:true});
-      const writable=await fileHandle.createWritable();
-      await writable.write(json); await writable.close();
-      showToast(`✅ 폴더에 백업이 저장되었습니다: ${filename}`);
-      return;
-    } catch(e) { /* fall through */ }
+    const ok=await verifyFolderPermission(state.directoryHandle);
+    if(ok) {
+      try {
+        const fileHandle=await state.directoryHandle.getFileHandle(filename,{create:true});
+        const writable=await fileHandle.createWritable();
+        await writable.write(json); await writable.close();
+        showToast(`✅ 폴더에 백업이 저장되었습니다: ${filename}`);
+        return;
+      } catch(e) { showToast('⚠️ 폴더 저장 실패, 다운로드로 전환합니다.'); }
+    } else {
+      showToast('⚠️ 폴더 접근 권한이 없어 다운로드로 저장합니다.');
+    }
   }
   // 일반 다운로드
   const blob=new Blob([json],{type:'application/json'});
@@ -1332,11 +1787,12 @@ function initEvents() {
 }
 
 /* ===================== Init ===================== */
-function init() {
+async function init() {
   initData();
   populateGenreSelect();
   initEvents();
   updateBadge();
+  await initDirectoryHandle();
   renderDashboard();
 }
 
